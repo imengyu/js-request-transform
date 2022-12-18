@@ -1,0 +1,36 @@
+{
+  "name": "js-request-transform",
+  "version": "1.0.0",
+  "description": "A simple tool to transform data to model in request",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imengyu/js-request-transform.git"
+  },
+  "keywords": [
+    "js",
+    "request",
+    "transform",
+    "fetch",
+    "data",
+    "model"
+  ],
+  "author": "imengyu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/imengyu/js-request-transform/issues"
+  },
+  "homepage": "https://github.com/imengyu/js-request-transform#readme",
+  "devDependencies": {
+    "jest": "^29.3.1",
+    "tslib": "^2.4.1",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.7"
+  }
+}
