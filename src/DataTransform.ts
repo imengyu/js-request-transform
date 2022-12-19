@@ -30,7 +30,7 @@ export function transformDataModel<T extends DataModel>(c: new () => T, source: 
  * @param rs 源数据数组
  * @returns 数据模型数组
  */
-export function transformArrayResult<T extends DataModel>(c: new () => T, source: KeyValue[]) : T[] {
+export function transformArrayDataModel<T extends DataModel>(c: new () => T, source: KeyValue[]) : T[] {
   const array = [] as T[];
   for (const item of source) {
     array.push(new c().fromServerSide(item) as T);

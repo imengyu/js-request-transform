@@ -1,0 +1,368 @@
+# js-request-transform
+
+## 简介
+
+这是一个为前端使用的数据模型转换层。可将后端返回的数据进行统一转换，成为前端方便使用的数据，同时，也支持提交前将前端的数据反向转换，变成后端可接受的数据。
+
+在我们开发CURD页面时，经常会遇到下面这几种情况：
+
+* 后端返回的某些数据不能直接在组件中使用，需要在设置到组件之前做一次转换。
+
+  例如，后端接口的某个日期字段，格式是 YYYY-MM-DD 的字符串，在使用 ant-desgin-vue 组件库时，组件需要传入一个 dayjs 对象。
+
+  那么在常规方法中，我们需要在请求数据之后，赋值表单之前，需要手动将所有日期字段转为dayjs，然后在提交数据之前将所有dayjs转为YYYY-MM-DD 的字符串，再提交。
+
+* 后端返回的数据结构无法在前端使用，需要转换才能在组件中使用。
+
+  例如：后端返回了这种数据格式
+  ```
+  {
+    "someKey": { "value": 1 },
+  }
+  ```
+  提交时需要这种数据格式
+  ```
+  {
+    "someKey": 1,
+  }
+  ```
+
+  那么常规方法中需要提交上传时对表单中的数据转换。
+
+* 后端返回的数据属性名称发生了更改，需要更改多个界面的显示。
+
+  例如：后端返回了这种数据格式，有多个接口格式差不多
+  ```
+  {
+    "someString": "aaaaa",
+  }
+  ```
+
+  有多个界面显示了这些接口的 someString 属性，假如某一天后端吧字段名称 someString 改成了 thatString，那么我们在界面显示的地方也需要修改名称。
+
+以上情况如果只是一处两处还好，如果有好多地方都需要修改，那就非常麻烦了（关于上面几种情况的解决方法，请参考下方使用案例）。
+
+因此，本库就是为解决这些问题所写的，他的主要功能是：**将数据转换单独抽离出来，可以统一在这里转换出结构清晰的数据供UI组件使用，而无需与UI组件耦合，无需再重复好几个地方写转换数据的代码**。
+
+主要的建议用法是：将其与您的 request/fecth 请求封装在一起，在请求/提交时自动转换相关数据，这样就无需在调用界面时还需要每个地方手动转换。
+
+## 特性
+
+* 支持数据双向转换，可以将数据从服务端返回的格式 》转为》 前端所需要的格式，又在提交时 从前端格式 》转为》 服务端需要的格式。
+* 支持多种字段类型的转换（字符串、数字、布尔值，Date，dayjs，数组，对象）。
+* 支持数组、对象嵌套转换。
+* 支持检查数据是否提供，这在大量数据缺失某些字段排查时非常有用。
+
+希望此库可以为你的开发带来帮助！
+
+## 安装
+
+```
+npm i -S @imengyu/js-request-transform
+```
+
+## 使用方法
+
+你可以将其与您的 request/fecth 请求封装在一起，在请求/提交时自动转换相关数据，这样就无需在调用界面时还需要每个地方手动转换。
+
+## 使用案例
+
+下面这个案例演示了数据双向转换与接口封装的功能。
+
+```ts
+
+import { DataModel, transformDataModel } from '@imengyu/js-request-transform';
+
+//这是我的数据模型定义
+// ShopProduct
+//  - ShopProductDetail
+//商品
+export class ShopProduct extends DataModel {
+  constructor() {
+    super();
+    /**
+     * 设置转换策略，支持多个 策略以满足您的使用需求。
+     * * default 默认模式（松散模式）：对于在转换表中定义的字段，进行转换，如果转换失败不会给出警告，未在表中定义的字段数据按原样返回。
+     * * strict-required 全部严格模式：在转换表中的字段，进行转换，如果未定义或者转换失败，则抛出异常。未在表中定义的数据会被忽略，不会写入对象。
+     * * strict-provided 仅提供字段严格模式：在转换表中的字段同 strict-required，未在表中定义的字段数据按原样返回。
+     * * warning 仅警告：同 default，但会在转换失败时给出警告。
+     * * warning-required 警告：同 strict-required，但会在转换失败时给出警告而不是异常。
+     * * warning-provided 警告：同 strict-provided，但会在转换失败时给出警告而不是异常。
+     */
+    this._convertPolicy = 'default';
+    //定义转换表
+    this._convertTable = {
+      category: {
+        /**
+         * 这里对 category 字段进行处理的目的同简介中的[情况2]，
+         * 因为返回数据时是一个对象，提交时只有一个id，我们不希望与UI界面处理的地方过于耦合，
+         * 所以对界面只使用统一的 category_id ，在提交时自动处理。
+         */
+        customToClientFn: (v: KeyValue) => {
+          this.category_name = v?.name as string || '';
+          this.category_id = v?.id as number || 0;
+          return undefined;
+        },
+        serverSide: 'undefined',
+      },
+      category_id: { serverSide: 'number' },
+      category_name: { serverSide: 'undefined' },//服务器端用不到我们单独设置的category_name
+      name: { clientSide: 'string', serverSide: 'string' },
+      description: { clientSide: 'array', serverSide: 'string' },
+      //这是[情况1]的解决方案，对传入传出的日期进行转换，这样在表单组件中可以直接使用 数据.startSolidDate 数据.endSolidDate 来设置日期，无需再手动转换
+      startSolidDate: { clientSide: 'dayjs'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
+      endSolidDate: { clientSide: 'dayjs'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
+      //这是嵌套数组对象的情况，在类型是 'array' 或者 'object' 时，只需要提供 clientSideChildDataModel，转换时会自动递归转换成对应的类型。
+      details: { clientSide: 'array', clientSideChildDataModel: ShopProductDetail, serverSide: 'array' },
+    };
+  }
+
+  //下方是设置一些默认值，通常是你在创建一个新对象时这个对象所带有的默认值，这配合表单很好用，就无需为表单手动设置默认值了。
+  //同时，定义字段后会有类型提示。
+  name = '';
+  description = '';
+  category_id = null as null|number;
+  category_name = '';
+  startSolidDate = dayjs();
+  endSolidDate = dayjs();
+  details = [] as ShopProductDetail[];
+}
+//商品详情
+//下面是作者工作项目中的一个示例
+export class ShopProductDetail extends DataModel {
+  constructor() {
+    super();
+    this._convertPolicy = 'default';
+    this._blackList.toServer.push(
+      'level_names',
+    );
+    this._convertTable = {
+      name: { clientSide: 'string', serverSide: 'string' },
+      description: { clientSide: 'array', serverSide: 'string' },
+      //同上的category字段，为了统一获取与提交，界面只使用 level_ids。
+      levels: {
+        customToClientFn: (v: KeyValue[]) => {
+          this.level_names = v?.map(k => k.name as string) || [];
+          this.level_ids = v?.map(k => k.id as number) || [];
+          return undefined;
+        },
+        serverSide: 'undefined',
+      },
+      //这里是为了: 作者公司项目后端上传图片是不一样的，获取的时候是完整的 URL （例如https://xxxx.com/aaaaa.png）, 提交的时候是
+      //相对路径 （例如/aaaaa.png），所以我这里需要这样处理，把路径中的host去掉。
+      //当然，如果你的数据也有不满足要求的地方，你也可以参考这个写法自定义处理数据。
+      images: {
+        customToServerFn(source: string[]) { return source.map(k => removeUrlOrigin(k)); },
+        customToClientFn(source) { return source }
+      },
+    };
+  }
+
+  name = '';
+  description = '';
+  images = [] as string[];
+  level_names = [] as string[];
+  level_ids = [] as number[];
+}
+
+//这是接口定义
+export class ShopApi {
+  /**
+    * 获取商品信息
+    * @param id 商品信息id
+    * @returns 
+    */
+  getShopProduct(id: number) : Promise<ShopProduct> {
+    return axios.get(`/product/${id}`)
+      //使用 transformDataModel 将源json数据转为我们需要的对象
+      .then((d) => transformDataModel(ShopProduct, d.data))；
+
+      //也可直接创建对象后转换
+      //.then((d) => {
+      //  return new ShopProduct().fromServerSide(d.data);
+      //})；
+  }
+  /**
+    * 更新商品信息
+    * @param id 商品信息id
+    * @param info 商品信息对象
+    * @returns 
+    */
+  updateShopProduct(id: number, info: ShopProduct) : Promise<void> {
+    //使用 toServerSide 将对象转为服务器可接受的格式
+    return axios.post(`/product/${id}`, info.toServerSide());
+  }
+}
+```
+
+在实际页面中调用, 这里使用了 vue3 和 ant-desgin-vue。这只是一个展示数据转换使用的 Demo ，实际上的表单比这个复杂的多。
+
+```vue
+<template>
+  <a-form
+    :model="formState"
+    name="basic"
+    :label-col="{ span: 8 }"
+    :wrapper-col="{ span: 16 }"
+    autocomplete="off"
+    @finish="onFinish"
+    @finishFailed="onFinishFailed"
+  >
+    <a-form-item
+      label="名称"
+      name="name"
+      :rules="[{ required: true, message: '请输入名称' }]"
+    >
+      <a-input v-model:value="formState.name" />
+    </a-form-item>
+    <a-form-item name="date-picker" label="开始售卖日期">
+      <a-date-picker v-model:value="formState.startSolidDate" />
+    </a-form-item>
+    <a-form-item name="date-picker" label="停止售卖日期">
+      <a-date-picker v-model:value="formState.endSolidDate" />
+    </a-form-item>
+
+    <!--篇幅有限，其他表单项未显示-->
+
+    <a-form-item :wrapper-col="{ offset: 8, span: 16 }">
+      <a-button type="primary" html-type="submit">提交</a-button>
+    </a-form-item>
+  </a-form>
+</template>
+
+<script setup lang="ts">
+import { defineComponent, reactive, onMounted } from 'vue';
+import { useRoute } from 'vue-router'
+import { ShopApi, ShopProduct } from 'api/ShopApi'; //ShopApi 就是上面的文件
+
+const formState = ref<ShopProduct>(new ShopProduct());
+
+const route = useRoute();
+const id = parseInt(route.query.id as string);
+
+//加载数据
+onMounted(() => {
+  ShopApi.getShopProduct(id).then((res) => {
+    formState.value = res; //因为经过转换，返回的res类型直接就是 ShopProduct, 无需特殊处理，表单组件可以直接使用
+  }).catch((e) => {
+    console.error('Failed:', e);
+  })
+
+  //上面是加载数据的情况，你可以仅使用 new ShopProduct() ，用作添加数据时的默认值。
+  //这样 formState 的值就是你在 ShopProduct 中设置的默认值，表单组件中的值也是你设置的默认值。
+  //提交也是一样的。
+})
+
+//提交
+const async onFinish = () => {
+  //提交时同样也无需再写转换，因为转换已经在 ShopProduct 中完成
+  try {
+    await ShopApi.updateShopProduct(id, formState);
+  } catch (e) {
+    console.error('Failed:', e);
+  }
+};
+const onFinishFailed = (errorInfo: any) => {
+  console.error('Failed:', errorInfo);
+};
+</script>
+```
+
+## API 参考
+
+### 接口参考
+
+#### DataModel
+
+
+
+#### DataConverter
+
+转换器构建方法。
+
+##### configDayJsTimeZone
+
+设置 dayjs 默认时区
+
+参考 https://dayjs.gitee.io/docs/zh-CN/plugin/timezone
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|timezone|时区名称|string|-|
+
+##### registerConverter
+
+注册一个自定义数据转换器。
+
+
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|config|转换器数据|ConverterConfig|-|
+
+##### unregisterConverter
+
+取消注册指定的数据转换器
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|key|转换器注册时提供的key|string|-|
+|targetType|转换器目标类型|string|-|
+
+##### makeSuccessConvertResult
+
+在自定义转换器中返回成功结果。
+
+|参数|说明|类型|默认值|必填|
+|--|--|--|--|--|
+|res|返回结果|unknown|-|是|
+
+##### makeFailConvertResult
+
+在自定义转换器中返回失败结果。
+
+|参数|说明|类型|默认值|必填|
+|--|--|--|--|--|
+|error|错误信息|`string` or `Error`|-|否|
+
+#### transformDataModel
+
+同 `new DataModel().fromServerSide(source)`。
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|c|需要转换的目标类型|`new () => T`|-|
+|source|源数组|`KeyValue`|-|
+
+返回：`T`
+
+#### transformArrayDataModel
+
+将数组转为模型数组。
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|c|需要转换的目标类型|`new () => T`|-|
+|source|源数组|`KeyValue[]`|-|
+
+返回：`T[]`
+
+### 内置转换类型定义
+
+这些内置注册都可以取消注册，他们的键值是 Default[TypeName] ，例如 undefined 的取消注册键值是 `DefaultUndefined`。
+
+* undefined 相当于黑名单，永远都会转换为 `undefined` 。
+* null 强制转换为 `null` 。
+* string 转换为字符串。
+* number 转换为数字类型。
+* boolean 转换为布尔值类型。
+* object 转换为对象。
+  可以指定 `clientSideChildDataModel` 或者 `serverSideChildDataModel` 来指定此对象要强制转为那个数据模型。
+  如果源对象是空数组，则转换为 `null`，其他类型无法转换。
+* array 转换为数组，源对象必须是数组类型。
+   可以指定 `clientSideChildDataModel` 或者 `serverSideChildDataModel` 来指定此数组的每个子条目要强制转为那个数据模型。
+* date 转换为 `Date`。
+  * 如果输入是字符串，则会尝试使用日期格式进行转换。
+  * 如果输入是数值时间戳，则会使用 `new Date(time)` 进行转换。
+* json 转换为JSON数组，不进行内置递归对象处理。
+* dayjs 转换为dayjs对象。

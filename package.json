@@ -1,6 +1,6 @@
 {
-  "name": "js-request-transform",
-  "version": "1.0.0",
+  "name": "@imengyu/js-request-transform",
+  "version": "0.1.0",
   "description": "A simple tool to transform data to model in request",
   "main": "dist/index.js",
   "scripts": {

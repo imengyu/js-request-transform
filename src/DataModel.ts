@@ -1,11 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * 数据模型转换层
- *
  * 功能介绍：
- *    这是一个为前端使用的数据模型转换层。
- *    可将后端返回的数据进行统一转换，成为前端方便使用的数据，同时，也会将前端的数据反向转换，变成后端可接受的数据。
- *    省去了手动适配后端数据的麻烦，前端不需要频繁修改界面相关的代码了。
+ *    数据模型转换层。
  *
  * Author: imengyu
  * Date: 2021/10/13
@@ -14,28 +10,8 @@
  * See License.txt in the project root for license information.
  */
 
-import { ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
+import { ConverterDataDirection, ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
 import { KeyValue, simpleClone } from "./DataUtils";
-
-/**
- * 内置转换类型定义
- * * undefined 相当于黑名单，永远都会转换为 `undefined` 。
- * * null 强制转换为 `null` 。
- * * string 转换为字符串。
- * * number 转换为数字类型。
- * * boolean 转换为布尔值类型。
- * * object 转换为对象。
- *    可以指定 `clientSideChildDataModel` 或者 `serverSideChildDataModel` 来指定此对象要强制转为那个数据模型。
- *    如果源对象是空数组，则转换为 `null`，其他类型无法转换。
- * * array 转换为数组，源对象必须是数组类型。
- *    可以指定 `clientSideChildDataModel` 或者 `serverSideChildDataModel` 来指定此数组的每个子条目要强制转为那个数据模型。
- * * date 转换为 `Date`。
- *    * 如果输入是字符串，则会尝试使用日期格式进行转换。
- *    * 如果输入是数值时间戳，则会使用 `new Date(time)` 进行转换。
- * * json 转换为JSON数组。
- * * dayjs 转换为dayjs对象。
- */
-export type DataConvertInnernType = 'undefined'|'null'|'string'|'number'|'boolean'|'object'|'array'|'date'|'json'|'dayjs';
 
 /**
  * 数据转换方法定义
@@ -90,19 +66,29 @@ export class DataModel implements KeyValue {
    */
   public _afterSolveServer: (() => void) | null = null;
   /**
-   * 从本地端转换后的后处理回调
+   * 从本地端转换后的后处理回调。data 是最终转为服务器端的数据，可自由修改。
    */
   public _afterSolveClient: ((data: KeyValue) => void) | null = null;
+  /**
+   * 统一设置默认的日期格式
+   */
+  public _defaultDateFormat = '';
   /**
    * 数据字段转换表。key类中的为属性名称，值是转换信息。
    */
   public _convertTable : { [index: string]: DataConvertItem }  = {};
   /**
-   * 字段的名称映射表(服务端至客户端)，左边是服务端名称，右边是客户端名称
+   * 自定义字段转换类型，这在对象的属性个数不确定时很有用。此函数返回的类型优先级比 _convertTable 高。
+   */
+  public _convertKeyType: ((key: string, direction: ConverterDataDirection) => DataConvertItem) | null = null;
+  /**
+   * 字段的名称映射表(服务端至客户端)，左边是服务端名称，右边是客户端名称。
+   * * 效果：服务端字段是 a ，客户端转换 a 之后会把它 赋值到名称为 b 的属性。
    */
   public _nameMapperServer : { [index: string]: string }  = {};
   /**
    * 字段的名称映射表(客户端至服务端)，左边是客户端名称，右边是名称服务端
+   * * 效果：客户端字段是 a ，转换 a 到服务端数据之后会把它 赋值到名称为 b 的属性。
    */
   public _nameMapperClient : { [index: string]: string }  = {};
   /**
@@ -213,15 +199,16 @@ export class DataModel implements KeyValue {
       const options : ConvertItemOptions = {
         policy: this._convertPolicy,
         direction: 'client',
+        defaultDateFormat: this._defaultDateFormat,
       };
       for (const key in data) {
         if (!key.startsWith('_') && !this._blackList.toClient.includes(key)) {
-          const convert = this._convertTable[key];
+          const convert = this._convertKeyType?.(key, 'client') || this._convertTable[key];
           const clientKey = this._nameMapperServer[key] || key;
           if (convert)
             this.set(clientKey, DataConverter.convertDataItem(
               data[key], 
-              (nameKeySup ? '' : (nameKeySup + ".")) + key,
+              (nameKeySup ? (nameKeySup + "."): '') + key,
               convert,
               options,
             ));
@@ -243,6 +230,7 @@ export class DataModel implements KeyValue {
     const options : ConvertItemOptions = {
       policy: this._convertPolicy,
       direction: 'server',
+      defaultDateFormat: this._defaultDateFormat,
     };
     for (const key in this) {
       if (!key.startsWith('_') && !this._blackList.toServer.includes(key)) {
@@ -254,12 +242,12 @@ export class DataModel implements KeyValue {
         if (this._dontSendToServerIfEmpty && (thisData === '' || thisData == null))
           continue;
 
-        const convert = this._convertTable[key];
+        const convert = this._convertKeyType?.(key, 'server') || this._convertTable[key];
         const serverKey = this._nameMapperClient[key] || key;
         if (convert)
           data[serverKey] = DataConverter.convertDataItem(
             thisData,
-            (nameKeySup ? '' : (nameKeySup + ".")) + key,
+            (nameKeySup ? (nameKeySup + ".") : '') + key,
             convert,
             options
           );
