@@ -391,8 +391,17 @@ export type ConvertPolicy =
   |'warning-provided';
 
 export interface ConvertItemOptions {
+  /**
+   * 当前模型的转换方向
+   */
   direction: ConverterDataDirection;
+  /**
+   * 当前模型的默认日期格式
+   */
   defaultDateFormat: string,
+  /**
+   * 当前模型的转换策略
+   */
   policy: ConvertPolicy;
 }
 

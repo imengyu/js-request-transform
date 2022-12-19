@@ -316,7 +316,7 @@ const onFinishFailed = (errorInfo: any) => {
 
 同 getLastServerSideData。
 
-##### fromServerSide(data : KeyValue|null|undefined, nameKeySup?: string) : DataModel
+###### fromServerSide(data : KeyValue|null|undefined, nameKeySup?: string) : DataModel
 
 从服务端数据创建前端使用的数据模型。
 
@@ -325,7 +325,7 @@ const onFinishFailed = (errorInfo: any) => {
 |data|服务端数据|`KeyValue`or`null`or`undefined`|-|
 |nameKeySup|键值前缀，用于调试|`string`|-|
 
-##### toServerSide(nameKeySup?: string) : DataModel
+###### toServerSide(nameKeySup?: string) : DataModel
 
 转换当前数据模型为服务端格式。
 
@@ -333,11 +333,11 @@ const onFinishFailed = (errorInfo: any) => {
 |--|--|--|--|
 |nameKeySup|键值前缀，用于调试|`string`|-|
 
-##### clone&lt;T extends DataModel&gt;(classCreator: new() => T) : T
+###### clone&lt;T extends DataModel&gt;(classCreator: new() => T) : T
 
 克隆一份。
 
-##### set(key: string, value: unknown)
+###### set(key: string, value: unknown)
 
 在实例上设置或增加属性。
 
@@ -346,7 +346,7 @@ const onFinishFailed = (errorInfo: any) => {
 |key|键|`string`|-|
 |value|值|`unknown`|-|
 
-##### get(key: string, defaultValue?: unknown): unknown
+###### get(key: string, defaultValue?: unknown): unknown
 
 在实例上设置或增加属性。
 
@@ -355,7 +355,33 @@ const onFinishFailed = (errorInfo: any) => {
 |key|键|`string`|-|
 |defaultValue|默认值|`unknown`|-|
 
-#### ConvertPolicy
+##### 转换表
+
+转换表 _convertTable 的 key 是属性的名称，value 是转换数据：DataConvertItem
+
+DataConvertItem：
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|serverSide|指定当前key转为服务端的数据类型|string|
+|serverSideDateFormat|当前key类型是dayjs时，自定义日期格式|string|
+|serverSideChildDataModel|当 serverSide 为 array/object 时，子项目要转换成的类型|`(new () => DataModel)`or`string`|
+|customToServerFn|自定义前端至服务端转换函数，指定此函数后 serverSide 属性无效|DataConvertCustomFn|
+|clientSide|指定当前key转为前端时的数据类型|string|
+|clientSideDateFormat|当前key类型是dayjs时，自定义日期格式|string|
+|serverSideChildDataModel|当 clientSide 为 array/object 时，子项目要转换成的类型|`(new () => DataModel)`or`string`|
+|customToClientFn|自定义服务端至前端转换函数，指定此函数后 clientSide 属性无效|DataConvertCustomFn|
+
+##### DataConvertCustomFn
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|source|源数据|unknown|-|
+|item|当前转换表条目|DataConvertItem|-|
+|source|其他参数|ConvertItemOptions|-|
+|返回|转换完成的数据|unknown|-|
+
+##### ConvertPolicy
 
 转换模式
 
@@ -416,6 +442,14 @@ const onFinishFailed = (errorInfo: any) => {
 |childDataModel|子数据的类型|`(new () => DataModel)`or`string`or`null`or`undefined`|
 |dateFormat|当前字段的日期格式，可能为空，为空时可使用 options.defaultDateFormat|string|
 |options|其他附加属性|ConvertItemOptions|
+
+##### ConvertItemOptions
+
+|参数|说明|类型|
+|--|--|--|--|
+|direction|当前模型的转换方向|ConverterDataDirection|
+|defaultDateFormat|当前模型的默认日期格式|string|
+|policy|当前模型的转换策略|ConvertPolicy|
 
 ##### unregisterConverter
 

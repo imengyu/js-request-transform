@@ -13,15 +13,33 @@
 import { ConverterDataDirection, ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
 import { KeyValue, simpleClone } from "./DataUtils";
 
+export type DataConvertCustomFn = (
+  /**
+   * 源数据
+   */
+  source: unknown,
+  /**
+   * 当前转换表条目
+   */
+  item: DataConvertItem,
+  /**
+   * 其他参数
+   */
+  options: ConvertItemOptions,
+) => unknown;
+
 /**
  * 数据转换方法定义
  */
 export interface DataConvertItem {
 
   /**
-   * 指定当前key服务端的数据类型
+   * 指定当前key转为服务端的数据类型
    */
   serverSide?: string;
+  /**
+   * 当前key类型是dayjs时，自定义日期格式
+   */
   serverSideDateFormat?: string;
   /**
    * 当 serverSide 为 array/object 时，子项目要转换成的类型
@@ -29,9 +47,12 @@ export interface DataConvertItem {
   // eslint-disable-next-line no-use-before-define
   serverSideChildDataModel?: (new () => DataModel)|string;
   /**
-   * 指定当前key前端的数据类型
+   * 指定当前key转为前端时的数据类型
    */
   clientSide?: string;
+  /**
+   * 当前key类型是dayjs时，自定义日期格式
+   */
   clientSideDateFormat?: string;
   /**
    * 当 clientSide 为 array/object 时，子项目要转换成的类型
@@ -41,11 +62,11 @@ export interface DataConvertItem {
   /**
    * 自定义前端至服务端转换函数，指定此函数后 serverSide 属性无效
    */
-  customToServerFn?: (source: unknown, item: DataConvertItem, options: ConvertItemOptions) => unknown;
+  customToServerFn?: DataConvertCustomFn;
   /**
    * 自定义服务端至前端转换函数，指定此函数后 clientSide 属性无效
    */
-  customToClientFn?: (source: unknown, item: DataConvertItem, options: ConvertItemOptions) => unknown;
+  customToClientFn?: DataConvertCustomFn;
 }
 
 /**
