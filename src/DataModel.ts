@@ -87,7 +87,7 @@ export class DataModel implements KeyValue {
    */
   public _nameMapperServer : { [index: string]: string }  = {};
   /**
-   * 字段的名称映射表(客户端至服务端)，左边是客户端名称，右边是名称服务端
+   * 字段的名称映射表(客户端至服务端)，左边是客户端名称，右边是名称服务端.
    * * 效果：客户端字段是 a ，转换 a 到服务端数据之后会把它 赋值到名称为 b 的属性。
    */
   public _nameMapperClient : { [index: string]: string }  = {};
@@ -119,7 +119,7 @@ export class DataModel implements KeyValue {
     return this._list as Array<T>;
   }
   /**
-   * 如果从服务端数据返回的是一个基本数据类型，那么可以在这里获取源数据
+   * 如果从服务端数据返回的是一个基本数据类型，那么可以在这里获取源数据。
    */
   public getValueType() : boolean|number|string|null {
     return this._valueType;
@@ -140,7 +140,7 @@ export class DataModel implements KeyValue {
     return simpleClone(this._lastServerSideData) as KeyValue;
   }
   /**
-   * 获取模型数据为纯JSON
+   * 获取模型数据为纯JSON（不包括隐藏属性，函数等）。
    * @returns
    */
   public keyValue() : KeyValue {
@@ -272,8 +272,7 @@ export class DataModel implements KeyValue {
    * @param value 值
    */
   public set(key: string, value: unknown) : void {
-    if (typeof value !== 'undefined')
-      (this as KeyValue)[key] = value;
+    (this as KeyValue)[key] = value;
   }
   /**
    * 在实例上获取属性的值

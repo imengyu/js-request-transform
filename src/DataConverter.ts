@@ -31,11 +31,29 @@ export type ConverterHandlerResult = {
   convertFailMessage?: string|Error;
 };
 export type ConverterHandler = (
+  /**
+   * 源数据
+   */
   source: unknown,
+  /**
+   * 当前处理数据的完整键值，用于调试
+   */
   key: string,
+  /**
+   * 转换类型
+   */
   type: string,
+  /**
+   * 子数据的类型
+   */
   childDataModel : (new () => DataModel)|string|null|undefined,
+  /**
+   * 当前字段的日期格式，可能为空，为空时可使用 options.defaultDateFormat
+   */
   dateFormat: string|undefined,
+  /**
+   * 其他附加属性
+   */
   options: ConvertItemOptions,
 ) => ConverterHandlerResult;
 
@@ -51,8 +69,8 @@ export interface ConverterConfig {
 
   /**
    * 当转换策略是必填时，此回调用于自定义类型检测是否提供。
-   * @param source 
-   * @returns 
+   * @param source 源数据
+   * @returns 返回为 undefined 时表示无错误，其他情况表示错误信息
    */
   preRequireCheckd?: (
     source: unknown,
@@ -99,8 +117,8 @@ function registerConverter(config: ConverterConfig) {
 }
 /**
  * 取消注册指定的数据转换器
- * @param config 转换器
- * @param targetType 转换器支持类型
+ * @param key 转换器注册时提供的key
+ * @param targetType 转换器目标类型
  */
 function unregisterConverter(key: string, targetType: string) {
   let array = converterArray.get(targetType);

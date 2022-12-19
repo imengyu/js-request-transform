@@ -274,7 +274,97 @@ const onFinishFailed = (errorInfo: any) => {
 
 #### DataModel
 
+##### 实例属性
 
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|_dontSendToServerIfEmpty|设置是否 子字段参数为空，则不传值至服务器|boolean|false|
+|_afterSolveServer|从服务端转换后的后处理回调|function|-|
+|_afterSolveClient|从本地端转换后的后处理回调。data 是最终转为服务器端的数据，可自由修改。|(data: KeyValue) => void|-|
+|_defaultDateFormat|统一设置默认的日期格式|string|-|
+|_convertTable|数据字段转换表。key类中的为属性名称，值是转换信息。|`Record&lt;string,DataConvertItem&gt;` |-|
+|_convertKeyType|自定义字段转换类型，这在对象的属性个数不确定时很有用。此函数返回的类型优先级比 _convertTable 高。|`(key: string, direction: ConverterDataDirection) => DataConvertItem`|-|
+|_nameMapperServer|字段的名称映射表(服务端至客户端)，左边是服务端名称，右边是客户端名称。效果：服务端字段是 a ，客户端转换 a 之后会把它 赋值到名称为 b 的属性。|`{ [index: string]: string }`|-|
+|_nameMapperClient|字段的名称映射表(客户端至服务端)，左边是客户端名称，右边是名称服务端。效果：客户端字段是 a ，转换 a 到服务端数据之后会把它 赋值到名称为 b 的属性。|`{ [index: string]: string }`|-|
+|_convertPolicy|转换策略。|`ConvertPolicy`|-|
+|_blackList|字段黑名单表。黑名单中的字段不会被转换也不会被拷贝至目标中。分为：到服务器的黑名单与到前端的黑名单|`{ toServer: string[] toClient: string[] }`|-|
+|_lastServerSideData|获取上次创建的服务端原始数据|`ConvertPolicy`|-|
+
+##### 实例方法
+
+###### getList&lt;T&gt;() : Array&lt;T&gt;|undefined|null
+
+如果从服务端数据返回的是一个数组，那么可以在这里获取源数组。
+
+###### getValueType() : boolean|number|string|null
+
+如果从服务端数据返回的是一个基本数据类型，那么可以在这里获取源数据。
+
+###### isList() : boolean
+
+获取模型数据是否是一个数组
+
+###### getLastServerSideData() : KeyValue|null
+
+同 _lastServerSideData，但此函数会创建一个克隆版本。
+
+###### keyValue() : KeyValue
+
+获取模型数据为纯JSON（不包括隐藏属性，函数等）。
+
+###### rawData() : KeyValue|null
+
+同 getLastServerSideData。
+
+##### fromServerSide(data : KeyValue|null|undefined, nameKeySup?: string) : DataModel
+
+从服务端数据创建前端使用的数据模型。
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|data|服务端数据|`KeyValue`or`null`or`undefined`|-|
+|nameKeySup|键值前缀，用于调试|`string`|-|
+
+##### toServerSide(nameKeySup?: string) : DataModel
+
+转换当前数据模型为服务端格式。
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|nameKeySup|键值前缀，用于调试|`string`|-|
+
+##### clone&lt;T extends DataModel&gt;(classCreator: new() => T) : T
+
+克隆一份。
+
+##### set(key: string, value: unknown)
+
+在实例上设置或增加属性。
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|key|键|`string`|-|
+|value|值|`unknown`|-|
+
+##### get(key: string, defaultValue?: unknown): unknown
+
+在实例上设置或增加属性。
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|key|键|`string`|-|
+|defaultValue|默认值|`unknown`|-|
+
+#### ConvertPolicy
+
+转换模式
+
+* default 默认模式（松散模式）：对于在转换表中定义的字段，进行转换，如果转换失败不会给出警告，未在表中定义的字段数据按原样返回。
+* strict-required 全部严格模式：在转换表中的字段，进行转换，如果未定义或者转换失败，则抛出异常。未在表中定义的数据会被忽略，不会写入结果。
+* strict-provided 仅提供字段严格模式：在转换表中的字段同 strict-required，未在表中定义的字段数据按原样返回。
+* warning 仅警告：同 default，但会在转换失败时给出警告。
+* warning-required 警告：同 strict-required，但会在转换失败时给出警告而不是异常。
+* warning-provided 警告：同 strict-provided，但会在转换失败时给出警告而不是异常。
 
 #### DataConverter
 
@@ -294,11 +384,38 @@ const onFinishFailed = (errorInfo: any) => {
 
 注册一个自定义数据转换器。
 
-
+支持注册自定义类型转换器，在转换一个字段时，会依次调用转换器，如果有一个转换器转换成功，则停止转换。先注册的优先级最高。
 
 |参数|说明|类型|默认值|
 |--|--|--|--|
 |config|转换器数据|ConverterConfig|-|
+
+##### ConverterConfig
+
+|参数|说明|类型|默认值|必填|
+|--|--|--|--|--|
+|targetType|当前转换器所接受的源数据类型|string|-|是|
+|key|唯一键值，用于取消注册，不提供的话则无法移除。|string|-|-|
+|preRequireCheckd|当转换策略是必填时，此回调用于自定义类型检测是否提供。|function|-|是|
+|converter|转换器主体函数|ConverterHandler|-|是|
+
+##### preRequireCheckd 回调定义
+
+|参数|说明|类型|
+|--|--|--|--|
+|source|源数据|unknown|
+|返回|返回为 undefined 时表示无错误，其他情况表示错误信息|unknown|
+
+##### ConverterHandler 定义
+
+|参数|说明|类型|
+|--|--|--|--|
+|source|源数据|unknown|
+|key|当前处理数据的完整键值，用于调试|string|
+|type|转换类型|string|
+|childDataModel|子数据的类型|`(new () => DataModel)`or`string`or`null`or`undefined`|
+|dateFormat|当前字段的日期格式，可能为空，为空时可使用 options.defaultDateFormat|string|
+|options|其他附加属性|ConvertItemOptions|
 
 ##### unregisterConverter
 
