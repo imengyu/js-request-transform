@@ -443,7 +443,7 @@ function convertInnernType(
       const error = convert.preRequireCheckd(source);
       if (error) {
         if (strict)
-          throw new Error(`Convert ${key} warn: Key ${key} is required but not provide.`);
+          throw new Error(`Convert ${key} faild: Key ${key} is required but not provide.`);
         if (warn)
           logWarn(`Convert ${key} warn: Key ${key} is required but not provide.`);
       }

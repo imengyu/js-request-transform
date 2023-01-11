@@ -237,6 +237,21 @@ export class DataModel implements KeyValue {
             this.set(clientKey, data[key]); //直接拷贝
         }
       }
+      //字段检查提供
+      if (this._convertPolicy.endsWith('required')) {
+        for (const key in this._convertTable) {
+          const convertItem = this._convertTable[key];
+          if (
+            convertItem.clientSide !== 'undefined' 
+            && convertItem.clientSide !== 'null'
+          ) {
+            const clientKey = this._nameMapperServer[key] || key;
+            const clientValue = this[clientKey];
+            if (typeof clientValue === 'undefined' || clientValue === null)
+              throw new Error(`Convert ${key} faild: Key ${key} is required but not provide.`);
+          }
+        }
+      }
     }
 
     this._afterSolveServer && this._afterSolveServer();
