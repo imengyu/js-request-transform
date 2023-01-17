@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { DataConvertItem, DataModel } from './DataModel';
-import { formatDate, isVaildDate, KeyValue, logError, logWarn, simpleClone, toNumberStr } from './DataUtils';
+import { DataDateUtils, DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn } from './DataUtils';
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -51,6 +51,10 @@ export type ConverterHandler = (
    * 当前字段的日期格式，可能为空，为空时可使用 options.defaultDateFormat
    */
   dateFormat: string|undefined,
+  /**
+   * 是否有必填标志
+   */
+  required: boolean,
   /**
    * 其他附加属性
    */
@@ -155,7 +159,7 @@ registerConverter({
       return 'Empty';
     return undefined;
   },
-  converter(source, key, type, childDataModel, dateFormat, options) {
+  converter(source, key, type, childDataModel, dateFormat, required, options) {
     //尝试转换JSON字符串
     if (typeof source === 'string') {
       try {
@@ -173,7 +177,7 @@ registerConverter({
           if (source[i] instanceof DataModel)
             item = (source[i] as DataModel).toServerSide(`${key}[${i}]`);
           else if (childDataModel === 'string')
-            item = convertInnernType(source[i], `${key}[${i}]`, undefined, dateFormat, childDataModel, options);
+            item = convertInnernType(source[i], `${key}[${i}]`, undefined, dateFormat, childDataModel, required, options);
           else
             item = source[i];
         }
@@ -182,7 +186,7 @@ registerConverter({
           if (typeof childDataModel === 'function')
             item = new childDataModel().fromServerSide(source[i], `${key}[${i}]`);
           else if (typeof childDataModel === 'string')
-            item = convertInnernType(source[i], `${key}[${i}]`, undefined, dateFormat, childDataModel, options);
+            item = convertInnernType(source[i], `${key}[${i}]`, undefined, dateFormat, childDataModel, required, options);
           else
             item = source[i];
         }
@@ -205,7 +209,7 @@ registerConverter({
       return 'Empty';
     return undefined;
   },
-  converter(source, key, type, childDataModel, dateFormat, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, options)  {
     //尝试转换JSON字符串
     if (typeof source === 'string') {
       try {
@@ -225,14 +229,14 @@ registerConverter({
         if (source instanceof DataModel)
           return makeSuccessConvertResult((source as DataModel).toServerSide(key));
         else
-          return makeSuccessConvertResult(simpleClone(source));
+          return makeSuccessConvertResult(DataObjectUtils.simpleClone(source));
       } else {
         if (source === null)
           return makeSuccessConvertResult(null);
         if (typeof childDataModel === 'function')
           return makeSuccessConvertResult(new childDataModel().fromServerSide(source as KeyValue, key));
         else
-          return makeSuccessConvertResult(simpleClone(source));
+          return makeSuccessConvertResult(DataObjectUtils.simpleClone(source));
       }
     }
     else
@@ -242,7 +246,7 @@ registerConverter({
 registerConverter({
   targetType: 'boolean',
   key: 'DefaultBoolean',
-  converter(source, key, type, childDataModel, dateFormat, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, options)  {
     if (typeof source === 'string')
       return makeSuccessConvertResult(source.toLowerCase() === 'true' || source === "1");
     else if (typeof source === 'boolean')
@@ -260,20 +264,20 @@ registerConverter({
 registerConverter({
   targetType: 'string',
   key: 'DefaultString',
-  converter(source, key, type, childDataModel, dateFormat, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, options)  {
     if (options.direction === 'client' && options.policy.startsWith('strict') && typeof source !== 'string')
       return makeFailConvertResult('Not a string');
 
     if (typeof source === 'string')
       return makeSuccessConvertResult(source);
     else if (typeof source === 'number')
-      return makeSuccessConvertResult(toNumberStr(source, 16));
+      return makeSuccessConvertResult(DataStringUtils.toNumberStr(source, 16));
     else if (typeof source === 'bigint')
       return makeSuccessConvertResult(source.toString());
     else if (typeof source === 'object' && dayjs.isDayjs(source))
       return makeSuccessConvertResult(source.format(dateFormat || options.defaultDateFormat));
     else if (typeof source === 'object' && source instanceof Date)
-      return makeSuccessConvertResult(formatDate(source, dateFormat || options.defaultDateFormat));
+      return makeSuccessConvertResult(DataDateUtils.formatDate(source, dateFormat || options.defaultDateFormat));
     else if (typeof source === 'object')
       return makeSuccessConvertResult(JSON.stringify(source));
     else if (source === null)
@@ -285,7 +289,7 @@ registerConverter({
 registerConverter({
   targetType: 'number',
   key: 'DefaultNumber',
-  converter(source, key, type, childDataModel, dateFormat, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, options)  {
     if (typeof source === 'object' && dayjs.isDayjs(source))
       return makeSuccessConvertResult(source.toDate().getTime());
     else if (typeof source === 'object' && source instanceof Date)
@@ -306,7 +310,7 @@ registerConverter({
 registerConverter({
   targetType: 'dayjs',
   key: 'DefaultDayjs',
-  converter(source, key, type, childDataModel, dateFormat, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, options)  {
     if (typeof source === 'string')
       return makeSuccessConvertResult(source === '' ? null : parseDayjs(source, dateFormat || options.defaultDateFormat));
     else if (typeof source === 'number')
@@ -322,10 +326,10 @@ registerConverter({
 registerConverter({
   targetType: 'date',
   key: 'DefaultDate',
-  converter(source, key, type, childDataModel, dateFormat, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, options)  {
     if (typeof source === 'string' || typeof source === 'number') {
       const date = new Date(source);
-      if (isVaildDate(date))
+      if (DataDateUtils.isVaildDate(date))
         return makeSuccessConvertResult(date);
       else
         return makeFailConvertResult('Invalid date');
@@ -338,7 +342,7 @@ registerConverter({
 registerConverter({
   targetType: 'json',
   key: 'DefaultJson',
-  converter(source, key, type, childDataModel, dateFormat, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, options)  {
     if (typeof source === 'string')  {
       const a = JSON.parse(source);
       return {
@@ -412,6 +416,7 @@ function convertInnernType(
   childDataModel: (new () => DataModel)|string|undefined, 
   dateFormat: string|undefined, 
   type: string, 
+  required: boolean, 
   options: ConvertItemOptions
 ) : unknown {
 
@@ -432,7 +437,17 @@ function convertInnernType(
     return source;
   }
 
-  const needCheckRequired = options.policy.endsWith('required');
+  const needCheckRequired = options.policy.endsWith('required') || required;
+
+  //判空
+  if (needCheckRequired) {
+    if (typeof source === 'undefined' || source === null) {
+      if (strict)
+        throw new Error(`Convert ${key} faild: Key ${key} is required but not provide or null.`);
+      if (warn)
+        logWarn(`Convert ${key} warn: Key ${key} is required but not provide or null.`);
+    }
+  }
 
   //转换
   const convertFailMessages = [];
@@ -443,9 +458,9 @@ function convertInnernType(
       const error = convert.preRequireCheckd(source);
       if (error) {
         if (strict)
-          throw new Error(`Convert ${key} faild: Key ${key} is required but not provide.`);
+          throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. ${error}.`);
         if (warn)
-          logWarn(`Convert ${key} warn: Key ${key} is required but not provide.`);
+          logWarn(`Convert ${key} warn: Key ${key} is required but not provide. ${error}.`);
       }
     }
 
@@ -456,6 +471,7 @@ function convertInnernType(
       type,
       childDataModel,
       dateFormat,
+      required,
       options,
     );
     if (result.success)
@@ -478,14 +494,14 @@ function convertDataItem(source: unknown, key: string, item: DataConvertItem, op
     if (typeof item.customToServerFn === 'function')
       return item.customToServerFn(source, item, options);
     else if (item.serverSide)
-      return convertInnernType(source, key, item.serverSideChildDataModel, item.serverSideDateFormat, item.serverSide, options);
+      return convertInnernType(source, key, item.serverSideChildDataModel, item.serverSideDateFormat, item.serverSide, item.serverSideRequired === true, options);
   } 
   else
   {
     if (typeof item.customToClientFn === 'function')
       return item.customToClientFn(source, item, options);
     else if (item.clientSide)
-      return convertInnernType(source, key, item.clientSideChildDataModel, item.clientSideDateFormat, item.clientSide, options);
+      return convertInnernType(source, key, item.clientSideChildDataModel, item.clientSideDateFormat, item.clientSide, item.clientSideRequired === true, options);
   }
   return undefined;
 }
