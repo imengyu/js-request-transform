@@ -529,7 +529,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     return DataObjectUtils.accessObjectByString(this, keyName, true, value) as U;
   }
   /**
-   * 在实例上获取属性的值
+   * 在实例上获取属性。
    * 
    * 访问路径支持：
    * * 支持点 “.” 表示子级属性。

@@ -292,18 +292,6 @@ const onFinishFailed = (errorInfo: any) => {
 
 ##### 实例方法
 
-###### getList&lt;T&gt;() : Array&lt;T&gt;|undefined|null
-
-如果从服务端数据返回的是一个数组，那么可以在这里获取源数组。
-
-###### getValueType() : boolean|number|string|null
-
-如果从服务端数据返回的是一个基本数据类型，那么可以在这里获取源数据。
-
-###### isList() : boolean
-
-获取模型数据是否是一个数组
-
 ###### getLastServerSideData() : KeyValue|null
 
 同 _lastServerSideData，但此函数会创建一个克隆版本。
@@ -333,26 +321,38 @@ const onFinishFailed = (errorInfo: any) => {
 |--|--|--|--|
 |nameKeySup|键值前缀，用于调试|`string`|-|
 
-###### clone&lt;T extends DataModel&gt;(classCreator: new() => T) : T
+###### clone()
 
 克隆一份。
 
 ###### set(key: string, value: unknown)
 
-在实例上设置或增加属性。
+在实例上通过字符串设置或增加对象中的属性。
+
+访问路径支持：
+
+* 支持点 “.” 表示子级属性。
+* 支持数组 “[x]” 表示数组的第 x 个数据。
+
+例如：a.listData[0].title
 
 |参数|说明|类型|默认值|
 |--|--|--|--|
-|key|键|`string`|-|
+|key|访问路径|`string`|-|
 |value|值|`unknown`|-|
 
 ###### get(key: string, defaultValue?: unknown): unknown
 
-在实例上设置或增加属性。
+在实例上获取属性。
+
+访问路径支持：
+
+* 支持点 “.” 表示子级属性。
+* 支持数组 “[x]” 表示数组的第 x 个数据。
 
 |参数|说明|类型|默认值|
 |--|--|--|--|
-|key|键|`string`|-|
+|key|访问路径|`string`|-|
 |defaultValue|默认值|`unknown`|-|
 
 ##### 转换表
@@ -364,10 +364,12 @@ DataConvertItem：
 |参数|说明|类型|默认值|
 |--|--|--|--|
 |serverSide|指定当前key转为服务端的数据类型|string|
+|serverSideRequired|指定当前key是否是必填，逻辑如图同 _convertPolicy 设置为 `*-required` 时。|boolean|
 |serverSideDateFormat|当前key类型是dayjs时，自定义日期格式|string|
 |serverSideChildDataModel|当 serverSide 为 array/object 时，子项目要转换成的类型|`(new () => DataModel)`or`string`|
 |customToServerFn|自定义前端至服务端转换函数，指定此函数后 serverSide 属性无效|DataConvertCustomFn|
-|clientSide|指定当前key转为前端时的数据类型|string|
+|clientSide|指定当前key是否是必填，逻辑如图同 _convertPolicy 设置为 `*-required` 时。|boolean|
+|clientSideRequired|指定当前key转为前端时的数据类型|string|
 |clientSideDateFormat|当前key类型是dayjs时，自定义日期格式|string|
 |serverSideChildDataModel|当 clientSide 为 array/object 时，子项目要转换成的类型|`(new () => DataModel)`or`string`|
 |customToClientFn|自定义服务端至前端转换函数，指定此函数后 clientSide 属性无效|DataConvertCustomFn|
@@ -428,25 +430,26 @@ DataConvertItem：
 ##### preRequireCheckd 回调定义
 
 |参数|说明|类型|
-|--|--|--|--|
+|--|--|--|
 |source|源数据|unknown|
 |返回|返回为 undefined 时表示无错误，其他情况表示错误信息|unknown|
 
 ##### ConverterHandler 定义
 
 |参数|说明|类型|
-|--|--|--|--|
+|--|--|--|
 |source|源数据|unknown|
 |key|当前处理数据的完整键值，用于调试|string|
 |type|转换类型|string|
 |childDataModel|子数据的类型|`(new () => DataModel)`or`string`or`null`or`undefined`|
-|dateFormat|当前字段的日期格式，可能为空，为空时可使用 options.defaultDateFormat|string|
+|dateFormat|当前字段的日期格式，可能为空，为空时可使用 `options.defaultDateFormat`|string|
+|required|是否有必填标志|boolean|
 |options|其他附加属性|ConvertItemOptions|
 
 ##### ConvertItemOptions
 
 |参数|说明|类型|
-|--|--|--|--|
+|--|--|--|
 |direction|当前模型的转换方向|ConverterDataDirection|
 |defaultDateFormat|当前模型的默认日期格式|string|
 |policy|当前模型的转换策略|ConvertPolicy|
