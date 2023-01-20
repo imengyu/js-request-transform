@@ -419,13 +419,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
       for (const key in data) {
         if (!this._blackList.toClient.includes(key)) {
           //转换映射字段名称
-          let clientKey = key;
-          for (const serverMapperKey in this._nameMapperServer) {
-            if (this._nameMapperServer[serverMapperKey] === key) {
-              clientKey = serverMapperKey;
-              break;
-            }
-          }
+          const clientKey = this._nameMapperServer[key] || key;
           const convert = this._convertKeyType?.(clientKey, 'client') || this._convertTable[clientKey];
           if (convert)
             this.set(clientKey, DataConverter.convertDataItem(
