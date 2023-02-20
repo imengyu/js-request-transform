@@ -741,7 +741,7 @@ function convertDataItem(source: unknown, key: string, item: DataConvertItem, op
         item.clientSideDateFormat, 
         item.clientSide, 
         item.clientSideRequired === true, 
-        item.clientrSideParam, 
+        item.clientSideParam, 
         options
       );
     }

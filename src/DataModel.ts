@@ -157,7 +157,7 @@ export interface DataConvertItem {
   /**
    * 指定自定义转换器的参数。
    */
-  clientrSideParam?: Record<string, unknown>;
+  clientSideParam?: Record<string, unknown>;
   /**
    * 自定义前端至服务端转换函数，指定此函数后 serverSide 属性无效。
    * 
