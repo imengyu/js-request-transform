@@ -7,27 +7,35 @@ class TestConvertFastTemplategModel extends DataModel {
       nestedObject: {
         clientSide: 'object', 
         clientSideChildDataModel: {
-          stringProp: { clientSide: 'string' },
-          numberProp: { clientSide: 'number' },
-          arrayProp: { clientSide: 'array' },
+          convertTable: {
+            stringProp: { clientSide: 'string' },
+            numberProp: { clientSide: 'number' },
+            arrayProp: { clientSide: 'array' },
+          }
         },
         serverSide: 'object', 
         serverSideChildDataModel: {
-          stringProp: { serverSide: 'number' },
-          numberProp: { serverSide: 'string' },
+          convertTable: {
+            stringProp: { serverSide: 'number' },
+            numberProp: { serverSide: 'string' },
+          }
         },
       },
       nestedArray: {
         clientSide: 'array', 
         clientSideChildDataModel: {
-          stringProp: { clientSide: 'string' },
-          numberProp: { clientSide: 'number' },
-          objectProp: { clientSide: 'object' },
+          convertTable: {
+            stringProp: { clientSide: 'string' },
+            numberProp: { clientSide: 'number' },
+            objectProp: { clientSide: 'object' },
+          }
         },
         serverSide: 'object', 
         serverSideChildDataModel: {
-          stringProp: { serverSide: 'number' },
-          numberProp: { serverSide: 'string' },
+          convertTable: {
+            stringProp: { serverSide: 'number' },
+            numberProp: { serverSide: 'string' },
+          }
         },
       },
     };

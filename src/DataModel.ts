@@ -92,6 +92,10 @@ export interface DataConvertItem {
    */
   serverSideChildDataModel?: ChildDataModel;
   /**
+   * 指定自定义转换器的参数。
+   */
+  serverSideParam?: Record<string, unknown>;
+  /**
    * 指定当前key转为前端时的数据类型
    */
   clientSide?: string;
@@ -151,6 +155,10 @@ export interface DataConvertItem {
    */
   clientSideChildDataModel?: ChildDataModel;
   /**
+   * 指定自定义转换器的参数。
+   */
+  clientrSideParam?: Record<string, unknown>;
+  /**
    * 自定义前端至服务端转换函数，指定此函数后 serverSide 属性无效。
    * 
    * 例如：
@@ -194,7 +202,9 @@ export interface DataConvertItem {
   customToClientFn?: DataConvertCustomFn;
 }
 
-export type ConvertTable = { [index: string]: DataConvertItem };
+export type ConvertTable = {
+  [index: string]: DataConvertItem|DataConvertItem[]
+};
 export type FastTemplateDataModelDefine = {
   convertTable: ConvertTable,
   convertPolicy ?: ConvertPolicy,
@@ -332,7 +342,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     }
    * ```
    */
-  public _convertKeyType: ((key: string, direction: ConverterDataDirection) => DataConvertItem|undefined) | null = null;
+  public _convertKeyType: ((key: string, direction: ConverterDataDirection) => DataConvertItem|DataConvertItem[]|undefined) | null = null;
   /**
    * 字段的名称映射表(服务端至客户端)，左边是服务端名称，右边是客户端名称。
    * * 效果：服务端字段是 a ，客户端转换之后会把它 赋值到名称为 b 的属性。
@@ -458,7 +468,9 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
       //字段检查提供
       const isRequiredMode = this._convertPolicy.endsWith('required');
       for (const key in this._convertTable) {
-        const convertItem = this._convertTable[key];
+        let convertItem = this._convertTable[key];
+        if (convertItem instanceof Array)
+          convertItem = convertItem[0];
         if (
           (
             (isRequiredMode && convertItem.clientSideRequired !== false)
@@ -486,14 +498,20 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
         if (!this._blackList.toClient.includes(key)) {
           //转换映射字段名称
           const clientKey = this._nameMapperServer[key] || key;
-          const convert = this._convertKeyType?.(clientKey, 'client') || this._convertTable[clientKey];
-          if (convert)
-            this.set(clientKey, DataConverter.convertDataItem(
-              data[clientKey], 
-              (nameKeySup ? (nameKeySup + "."): '') + key,
-              convert,
-              options,
-            ));
+          const convertItem = this._convertKeyType?.(clientKey, 'client') || this._convertTable[clientKey];
+          const convertArray = convertItem instanceof Array ? convertItem : [ convertItem ];
+          if (convertItem && convertArray.length > 0) {
+            let source = data[clientKey];
+            for (const convert of convertArray) {
+              source = DataConverter.convertDataItem(
+                data[clientKey], 
+                (nameKeySup ? (nameKeySup + "."): '') + key,
+                convert,
+                options,
+              );
+            }
+            this.set(clientKey, source);
+          }
           else if(!isRequiredMode)
             this.set(clientKey, data[key]); //直接拷贝
         }
@@ -521,7 +539,9 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     //字段检查提供
     const isRequiredMode = this._convertPolicy.endsWith('required');
     for (const key in this._convertTable) {
-      const convertItem = this._convertTable[key];
+      let convertItem = this._convertTable[key];
+      if (convertItem instanceof Array)
+        convertItem = convertItem[0];
       if (
         (
           (isRequiredMode && convertItem.serverSideRequired !== false)
@@ -546,15 +566,21 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
         if (this._dontSendToServerIfEmptyString && (thisData === ''))
           continue;
 
-        const convert = this._convertKeyType?.(key, 'server') || this._convertTable[key];
+        const convertItem = this._convertKeyType?.(key, 'server') || this._convertTable[key];
+        const convertArray = convertItem instanceof Array ? convertItem : [ convertItem ];
         const serverKey = this._nameMapperClient[key] || key;
-        if (convert)
-          data[serverKey] = DataConverter.convertDataItem(
-            thisData,
-            (nameKeySup ? (nameKeySup + ".") : '') + key,
-            convert,
-            options
-          );
+        if (convertItem && convertArray.length > 0) {
+          let source = thisData;
+          for (const convert of convertArray) {
+            source = DataConverter.convertDataItem(
+              thisData,
+              (nameKeySup ? (nameKeySup + ".") : '') + key,
+              convert,
+              options
+            );
+          }
+          data[serverKey] = source;
+        }
         else if(!isRequiredMode)
           data[serverKey] = thisData; //直接拷贝
       }
