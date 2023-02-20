@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { DataConvertItem, DataModel } from './DataModel';
+import { ChildDataModel, ConvertTable, DataConvertItem, DataModel, FastTemplateDataModelDefine } from './DataModel';
 import { DataDateUtils, DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn } from './DataUtils';
 
 dayjs.extend(utc)
@@ -46,7 +46,7 @@ export type ConverterHandler = (
   /**
    * 子数据的类型
    */
-  childDataModel : (new () => DataModel)|string|null|undefined,
+  childDataModel : ChildDataModel|undefined,
   /**
    * 当前字段的日期格式，可能为空，为空时可使用 options.defaultDateFormat
    */
@@ -84,6 +84,26 @@ export interface ConverterConfig {
    * 转换器主体函数
    */
   converter: ConverterHandler;
+}
+
+//快速模板类
+class FastTemplateDataModel extends DataModel {
+  public constructor(define: FastTemplateDataModelDefine, fastSetValues?: KeyValue) {
+    super(undefined, 'FastTemplate');
+    this._convertTable = define.convertTable;
+    if (define.convertKeyType)
+      this._convertKeyType = define.convertKeyType;
+    if (define.convertPolicy)
+      this._convertPolicy = define.convertPolicy;
+    if (define.nameMapperClient)
+      this._nameMapperClient = define.nameMapperClient;
+    if (define.nameMapperServer)
+      this._nameMapperServer = define.nameMapperServer;
+    if (fastSetValues) {
+      for (const key in fastSetValues)
+        this[key] = fastSetValues[key];
+    }
+  }
 }
 
 let setDayJsTimeZone = '';
@@ -176,8 +196,10 @@ registerConverter({
         {
           if (source[i] instanceof DataModel)
             item = (source[i] as DataModel).toServerSide(`${key}[${i}]`);
-          else if (childDataModel === 'string')
+          else if (typeof childDataModel === 'string')
             item = convertInnernType(source[i], `${key}[${i}]`, undefined, dateFormat, childDataModel, required, options);
+          else if (typeof childDataModel === 'object')
+            item = new FastTemplateDataModel(childDataModel, source[i]).toServerSide(`${key}[${i}]`);
           else
             item = source[i];
         }
@@ -187,6 +209,8 @@ registerConverter({
             item = new childDataModel().fromServerSide(source[i], `${key}[${i}]`);
           else if (typeof childDataModel === 'string')
             item = convertInnernType(source[i], `${key}[${i}]`, undefined, dateFormat, childDataModel, required, options);
+          else if (typeof childDataModel === 'object')
+            item = new FastTemplateDataModel(childDataModel).fromServerSide(source[i], `${key}[${i}]`);
           else
             item = source[i];
         }
@@ -228,6 +252,8 @@ registerConverter({
           return makeSuccessConvertResult(null);
         if (source instanceof DataModel)
           return makeSuccessConvertResult((source as DataModel).toServerSide(key));
+        else if (typeof childDataModel === 'object')
+          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel, source as KeyValue).toServerSide(key));
         else
           return makeSuccessConvertResult(DataObjectUtils.simpleClone(source));
       } else {
@@ -235,6 +261,8 @@ registerConverter({
           return makeSuccessConvertResult(null);
         if (typeof childDataModel === 'function')
           return makeSuccessConvertResult(new childDataModel().fromServerSide(source as KeyValue, key));
+        else if (typeof childDataModel === 'object')
+          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel).fromServerSide(source as KeyValue, key));
         else
           return makeSuccessConvertResult(DataObjectUtils.simpleClone(source));
       }
@@ -413,7 +441,7 @@ export interface ConvertItemOptions {
 function convertInnernType(
   source: unknown, 
   key: string, 
-  childDataModel: (new () => DataModel)|string|undefined, 
+  childDataModel: ChildDataModel|undefined, 
   dateFormat: string|undefined, 
   type: string, 
   required: boolean, 
@@ -493,15 +521,38 @@ function convertDataItem(source: unknown, key: string, item: DataConvertItem, op
   {
     if (typeof item.customToServerFn === 'function')
       return item.customToServerFn(source, item, options);
-    else if (item.serverSide)
-      return convertInnernType(source, key, item.serverSideChildDataModel, item.serverSideDateFormat, item.serverSide, item.serverSideRequired === true, options);
+    else if (item.serverSide) {
+      
+      if (typeof item.serverSidePresolve === 'function')
+        source = item.serverSidePresolve(key, source);
+      return convertInnernType(
+        source, 
+        key, 
+        item.serverSideChildDataModel, 
+        item.serverSideDateFormat, 
+        item.serverSide, 
+        item.serverSideRequired === true, 
+        options
+      );
+    }
   } 
   else
   {
     if (typeof item.customToClientFn === 'function')
       return item.customToClientFn(source, item, options);
-    else if (item.clientSide)
-      return convertInnernType(source, key, item.clientSideChildDataModel, item.clientSideDateFormat, item.clientSide, item.clientSideRequired === true, options);
+    else if (item.clientSide) {
+      if (typeof item.clientSidePresolve === 'function')
+        source = item.clientSidePresolve(key, source);
+      return convertInnernType(
+        source,
+        key,
+        item.clientSideChildDataModel, 
+        item.clientSideDateFormat, 
+        item.clientSide, 
+        item.clientSideRequired === true, 
+        options
+      );
+    }
   }
   return undefined;
 }

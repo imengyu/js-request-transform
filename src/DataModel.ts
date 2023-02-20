@@ -40,7 +40,9 @@ export interface DataConvertItem {
    */
   serverSideDateFormat?: string;
   /**
-   * 指定当前key是否是必填，逻辑如图同 _convertPolicy 设置为 `*-required` 时。
+   * 指定当前key是否是必填，如果未定义，则检查逻辑继承自 _convertPolicy 。
+   * 
+   * 此设置的优先级比 _convertPolicy 定义高。
    * 
    * * 此必填仅限制本地至服务端。
    * 
@@ -50,6 +52,10 @@ export interface DataConvertItem {
    * * 字段是 null
    */
   serverSideRequired?: boolean;
+  /**
+   * 指定当前key转为服务端的预处理回调，可以返回自定义值，后续转换将使用返回的值。
+   */
+  serverSidePresolve?: (key: string, data: unknown) => unknown;
   /**
    * 当 serverSide 为 array/object 时，子项目要转换成的类型，通常可用于递归对象转换。
    * 
@@ -68,15 +74,31 @@ export interface DataConvertItem {
       },
     };
    * ```
+   *
+   * 也可设置为便捷递归转换表，子对象会根据转换表进行转换。
+   * 
+   * 例如：
+   * ```js
+   * this._convertTable = {
+      myObjectProp: { 
+        serverSide: 'object',
+        serverSideChildDataModel: {
+          stringType: { serverSide: 'string' },
+          arrayType: { serverSide: 'array' },
+        }
+      },
+    };
+   * ```
    */
-  // eslint-disable-next-line no-use-before-define
-  serverSideChildDataModel?: (new () => DataModel)|string;
+  serverSideChildDataModel?: ChildDataModel;
   /**
    * 指定当前key转为前端时的数据类型
    */
   clientSide?: string;
   /**
-   * 指定当前key是否是必填，逻辑如图同 _convertPolicy 设置为 `*-required` 时。
+   * 指定当前key是否是必填，如果未定义，则检查逻辑继承自 _convertPolicy 。
+   * 
+   * 此设置的优先级比 _convertPolicy 定义高。
    * 
    * * 此必填仅限制服务端至本地。
    * 
@@ -86,6 +108,10 @@ export interface DataConvertItem {
    * * 字段是 null
    */
   clientSideRequired?: boolean;
+  /**
+   * 指定当前key转为前端的预处理回调，可以返回自定义值，后续转换将使用返回的值。
+   */
+  clientSidePresolve?: (key: string, data: unknown) => unknown;
   /**
    * 当前key类型是dayjs时，自定义日期格式
    */
@@ -108,9 +134,22 @@ export interface DataConvertItem {
       },
     };
    * ```
+   * 也可设置为便捷递归转换表，子对象会根据转换表进行转换。
+   * 
+   * 例如：
+   * ```js
+   * this._convertTable = {
+      myObjectProp: { 
+        clientSide: 'object',
+        clientSideChildDataModel: {
+          stringType: { clientSide: 'string' },
+          arrayType: { clientSide: 'array' },
+        }
+      },
+    };
+   * ```
    */
-  // eslint-disable-next-line no-use-before-define
-  clientSideChildDataModel?: (new () => DataModel)|string;
+  clientSideChildDataModel?: ChildDataModel;
   /**
    * 自定义前端至服务端转换函数，指定此函数后 serverSide 属性无效。
    * 
@@ -155,6 +194,16 @@ export interface DataConvertItem {
   customToClientFn?: DataConvertCustomFn;
 }
 
+export type ConvertTable = { [index: string]: DataConvertItem };
+export type FastTemplateDataModelDefine = {
+  convertTable: ConvertTable,
+  convertPolicy ?: ConvertPolicy,
+  convertKeyType?: ((key: string, direction: ConverterDataDirection) => DataConvertItem|undefined) | null,
+  nameMapperServer ?: { [index: string]: string },
+  nameMapperClient ?: { [index: string]: string },
+};
+export type ChildDataModel = (new () => DataModel)|FastTemplateDataModelDefine|string;
+
 /**
  * 双向数据模型实体类。
  * 该类提供了双向的数据转换。
@@ -168,7 +217,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
   //索引未定义的类型时，推断为 unknow
   [index: string]: unknown;
 
-  private _classCreator: new() => T;
+  private _classCreator: (new() => T)|undefined;
   private _classDebugName = '';
 
   /**
@@ -176,7 +225,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
    * @param classCreator 传入当前类的实例
    * @param classDebugName 标记当前类，用于调试
    */
-  public constructor(classCreator: new() => T, classDebugName = '') {
+  public constructor(classCreator?: new() => T, classDebugName = '') {
     this._classCreator = classCreator;
     this._classDebugName = classDebugName;
   }
@@ -243,13 +292,26 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
    */
   public _afterSolveClient: ((data: KeyValue) => void) | null = null;
   /**
+   * 从服务端转换前的处理回调。
+   * 
+   * 此回调将在所有转换器被调用之前调用，服务端数据通过 data 参数传入，
+   * 你可以选择修改或者返回新的数据，之后的转换器将会使用你修改过的数据。
+   */
+  public _beforeSolveServer: ((data: KeyValue) => KeyValue) | null = null;
+  /**
+   * 从本地端转换前的处理回调。
+   * 
+   * 此回调将在所有转换器被调用之前调用。
+   */
+  public _beforeSolveClient: (() => void) | null = null;
+  /**
    * 统一设置默认的日期格式。当 _convertTable 中未指定日期格式时，使用此日期格式。
    */
   public _defaultDateFormat = '';
   /**
    * 数据字段转换表。key类中的为属性名称，值是转换信息。
    */
-  public _convertTable : { [index: string]: DataConvertItem }  = {};
+  public _convertTable : ConvertTable = {};
   /**
    * 自定义字段转换类型，这在对象的属性个数不确定时很有用。此函数返回的类型优先级比 _convertTable 高。
    * 
@@ -364,9 +426,8 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
    * @param data 服务端数据
    * @returns
    */
-  public fromServerSide(data : KeyValue|null|undefined, nameKeySup?: string) : DataModel {
+  public fromServerSide(data : KeyValue|undefined|null, nameKeySup?: string) : DataModel {
     this._lastServerSideData = data || null;
-
     if (typeof data === 'undefined' || data === null || typeof data === 'boolean' || typeof data === 'string' || typeof data === 'number') {
 
       //null与undefined，基本类型数据，不能转换
@@ -391,13 +452,18 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
         direction: 'client',
         defaultDateFormat: this._defaultDateFormat,
       };
-      
+      //调用预处理回调
+      data = this._beforeSolveServer?.(data) || data;
+
       //字段检查提供
       const isRequiredMode = this._convertPolicy.endsWith('required');
       for (const key in this._convertTable) {
         const convertItem = this._convertTable[key];
         if (
-          (isRequiredMode || convertItem.clientSideRequired)
+          (
+            (isRequiredMode && convertItem.clientSideRequired !== false)
+            || (convertItem.clientSideRequired === true)
+          )
           && convertItem.clientSide !== 'undefined' 
           && convertItem.clientSide !== 'null'
         ) {
@@ -448,13 +514,19 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
       direction: 'server',
       defaultDateFormat: this._defaultDateFormat,
     };
-    
+
+    //调用预处理回调
+    this._beforeSolveServer?.(data);
+
     //字段检查提供
     const isRequiredMode = this._convertPolicy.endsWith('required');
     for (const key in this._convertTable) {
       const convertItem = this._convertTable[key];
       if (
-        (isRequiredMode || convertItem.serverSideRequired)
+        (
+          (isRequiredMode && convertItem.serverSideRequired !== false)
+          || (convertItem.serverSideRequired === true)
+        )
         && convertItem.serverSide !== 'undefined' 
         && convertItem.serverSide !== 'null'
       ) {
@@ -500,6 +572,8 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
    * @returns
    */
   public clone() : T {
+    if (!this._classCreator)
+      throw new Error(`This DataModel ${this._classDebugName} can not be clone.`);
     return new this._classCreator().fromServerSide(this.getLastServerSideData()) as T;
   }
 
