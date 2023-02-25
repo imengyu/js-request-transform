@@ -258,12 +258,10 @@ registerConverter({
 });
 registerConverter({
   targetType: 'object',
-  key: 'ObjectToMap',
+  key: 'MapToObject',
   preRequireCheckd(source) {
     if (typeof source === 'undefined')
       return 'Empty';
-    if (!(source instanceof Map))
-      return 'Not a Map';
     return undefined;
   },
   converter(source, key, type, childDataModel, dateFormat, required, params, options) {
@@ -288,8 +286,6 @@ registerConverter({
       return 'Empty';
     if (typeof source === 'string' && (source === '' ))
       return 'Empty';
-    if (!(source instanceof Map))
-      return 'Not a Map';
     return undefined;
   },
   converter(source, key, type, childDataModel, dateFormat, required, params, options) {
@@ -382,8 +378,6 @@ registerConverter({
       return 'Empty';
     if (typeof source === 'string' && (source === '' ))
       return 'Empty';
-    if (!(source instanceof Set))
-      return 'Not a set';
     return undefined;
   },
   converter(source, key, type, childDataModel, dateFormat, required, params, options) {
