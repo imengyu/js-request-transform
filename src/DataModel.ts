@@ -501,10 +501,10 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
           const convertItem = this._convertKeyType?.(clientKey, 'client') || this._convertTable[clientKey];
           const convertArray = convertItem instanceof Array ? convertItem : [ convertItem ];
           if (convertItem && convertArray.length > 0) {
-            let source = data[clientKey];
+            let source = data[key];
             for (const convert of convertArray) {
               source = DataConverter.convertDataItem(
-                data[clientKey], 
+                source, 
                 (nameKeySup ? (nameKeySup + "."): '') + key,
                 convert,
                 options,
@@ -573,7 +573,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
           let source = thisData;
           for (const convert of convertArray) {
             source = DataConverter.convertDataItem(
-              thisData,
+              source,
               (nameKeySup ? (nameKeySup + ".") : '') + key,
               convert,
               options
