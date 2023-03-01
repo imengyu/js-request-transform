@@ -648,10 +648,8 @@ function convertInnernType(
     return source;
   }
 
-  const needCheckRequired = options.policy.endsWith('required') || required;
-
   //判空
-  if (needCheckRequired) {
+  if (required) {
     if (typeof source === 'undefined' || source === null) {
       if (strict)
         throw new Error(`Convert ${key} faild: Key ${key} is required but not provide or null.`);
@@ -665,7 +663,7 @@ function convertInnernType(
   for (const convert of array) {
 
     //判空
-    if (needCheckRequired && convert.preRequireCheckd) {
+    if (required && convert.preRequireCheckd) {
       const error = convert.preRequireCheckd(source);
       if (error) {
         if (strict)
@@ -701,6 +699,8 @@ function convertInnernType(
   return undefined;
 }
 function convertDataItem(source: unknown, key: string, item: DataConvertItem, options: ConvertItemOptions) : unknown {
+  const policyRequired = options.policy.endsWith('required');
+
   if (options.direction === 'server') 
   {
     if (typeof item.customToServerFn === 'function')
@@ -715,7 +715,7 @@ function convertDataItem(source: unknown, key: string, item: DataConvertItem, op
         item.serverSideChildDataModel, 
         item.serverSideDateFormat, 
         item.serverSide, 
-        item.serverSideRequired === true, 
+        (item.serverSideRequired === true || (policyRequired && item.serverSideRequired !== false)), 
         item.serverSideParam, 
         options,
       );
@@ -734,7 +734,7 @@ function convertDataItem(source: unknown, key: string, item: DataConvertItem, op
         item.clientSideChildDataModel, 
         item.clientSideDateFormat, 
         item.clientSide, 
-        item.clientSideRequired === true, 
+        (item.clientSideRequired === true || (policyRequired && item.clientSideRequired !== false)), 
         item.clientSideParam, 
         options
       );
