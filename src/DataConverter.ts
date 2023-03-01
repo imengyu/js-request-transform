@@ -690,7 +690,7 @@ function convertInnernType(
       convertFailMessages.push(result.convertFailMessage);
   }
 
-  if (strict) {
+  if (strict && required) {
     logError(`Convert ${key} faild: All converter was failed for type ${type}: ${convertFailMessages.join(',')}. Source: `, source);
     throw new Error(`Convert ${key} faild: All converter was failed for type ${type}.`);
   }
