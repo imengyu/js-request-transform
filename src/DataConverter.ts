@@ -63,6 +63,14 @@ export type ConverterHandler = (
    * 其他附加属性
    */
   options: ConvertItemOptions,
+  /**
+   * 调试用键值路径
+   */
+  debugKey: string,
+  /**
+   * 调试用模型名称
+   */
+  debugName: string,
 ) => ConverterHandlerResult;
 
 export interface ConverterConfig {
@@ -92,9 +100,10 @@ export interface ConverterConfig {
 
 //快速模板类
 class FastTemplateDataModel extends DataModel {
-  public constructor(define: FastTemplateDataModelDefine, fastSetValues?: KeyValue) {
+  public constructor(define: FastTemplateDataModelDefine, prevDebugKey: string, fastSetValues?: KeyValue) {
     super(undefined, 'FastTemplate');
     this._convertTable = define.convertTable;
+    this._classPrevDebugKey = prevDebugKey;
     if (define.convertKeyType)
       this._convertKeyType = define.convertKeyType;
     if (define.convertPolicy)
@@ -181,7 +190,9 @@ function convertArrayOrObjectItemSolver(
   dateFormat: string|undefined,
   required: boolean,
   params: Record<string, unknown>|undefined,
-  options: ConvertItemOptions
+  options: ConvertItemOptions,
+  debugKey: string,
+  debugName: string,
 ) {
   let item : unknown = null;
   if (options.direction === 'server')
@@ -189,20 +200,20 @@ function convertArrayOrObjectItemSolver(
     if (source instanceof DataModel)
       item = (source as DataModel).toServerSide(`${key}[${i}]`);
     else if (typeof childDataModel === 'string')
-      item = convertInnernType(source, `${key}[${i}]`, undefined, dateFormat, childDataModel, required, params, options);
+      item = convertInnernType(source, `${key}[${i}]`, undefined, dateFormat, childDataModel, required, params, options, `${debugKey}[${i}]`, debugName);
     else if (typeof childDataModel === 'object')
-      item = new FastTemplateDataModel(childDataModel, source as KeyValue).toServerSide(`${key}[${i}]`);
+      item = new FastTemplateDataModel(childDataModel, `${debugKey}[${i}]`, source as KeyValue).toServerSide(`${key}[${i}]`);
     else
       item = source;
   }
   else
   {
     if (typeof childDataModel === 'function')
-      item = new childDataModel().fromServerSide(source as KeyValue , `${key}[${i}]`);
+      item = new childDataModel().fromServerSide(source as KeyValue, `${key}[${i}]`);
     else if (typeof childDataModel === 'string')
-      item = convertInnernType(source, `${key}[${i}]`, undefined, dateFormat, childDataModel, required, params, options);
+      item = convertInnernType(source, `${key}[${i}]`, undefined, dateFormat, childDataModel, required, params, options, `${debugKey}[${i}]`, debugName);
     else if (typeof childDataModel === 'object')
-      item = new FastTemplateDataModel(childDataModel).fromServerSide(source as KeyValue, `${key}[${i}]`);
+      item = new FastTemplateDataModel(childDataModel, `${debugKey}[${i}]`).fromServerSide(source as KeyValue, `${key}[${i}]`);
     else
       item = source;
   }
@@ -220,7 +231,7 @@ registerConverter({
       return 'Empty';
     return undefined;
   },
-  converter(source, key, type, childDataModel, dateFormat, required, params, options) {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName) {
     //尝试转换JSON字符串
     if (typeof source === 'string') {
       try {
@@ -235,7 +246,7 @@ registerConverter({
         const result = new Map<unknown, unknown>();
         const mapKey = params?.mapKey as string || 'id';
         for (let i = 0, c = source.length; i < c; i++) {
-          const item = convertArrayOrObjectItemSolver(source[i], i, key, childDataModel, dateFormat, required, params, options);
+          const item = convertArrayOrObjectItemSolver(source[i], i, key, childDataModel, dateFormat, required, params, options, `${debugKey}[${i}]`, debugName);
           result.set((item as Record<string, unknown>)[mapKey] || i, item);
         }
         return makeSuccessConvertResult(result);
@@ -245,7 +256,7 @@ registerConverter({
         const result = new Map<unknown, unknown>();
         const mapKey = params?.mapKey as string || 'id';
         for (const childKey in source) {
-          const item = convertArrayOrObjectItemSolver((source as Record<string, unknown>)[childKey], childKey, key, childDataModel, dateFormat, required, params, options);
+          const item = convertArrayOrObjectItemSolver((source as Record<string, unknown>)[childKey], childKey, key, childDataModel, dateFormat, required, params, options, `${debugKey}.${childKey}`, debugName);
           result.set((item as Record<string, unknown>)[mapKey] || childKey, item);
         }
         return makeSuccessConvertResult(result);
@@ -264,11 +275,11 @@ registerConverter({
       return 'Empty';
     return undefined;
   },
-  converter(source, key, type, childDataModel, dateFormat, required, params, options) {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName) {
     if (typeof source === 'object' && source instanceof Map) {
       const result = {} as Record<string, unknown>;
       for (const [ childKey, value ] of source) {
-        const item = convertArrayOrObjectItemSolver(value, childKey, key, childDataModel, dateFormat, required, params, options);
+        const item = convertArrayOrObjectItemSolver(value, childKey, key, childDataModel, dateFormat, required, params, options, `${debugKey}.${childKey}`, debugName);
         result[childKey] = item;
       }
       return makeSuccessConvertResult(result);
@@ -288,11 +299,11 @@ registerConverter({
       return 'Empty';
     return undefined;
   },
-  converter(source, key, type, childDataModel, dateFormat, required, params, options) {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName) {
     if (typeof source === 'object' && source instanceof Map) {
       const result = [] as unknown[];
       for (const [childKey, value] of source) {
-        const item = convertArrayOrObjectItemSolver(value, childKey, key, childDataModel, dateFormat, required, params, options);
+        const item = convertArrayOrObjectItemSolver(value, childKey, key, childDataModel, dateFormat, required, params, options, `${debugKey}.${childKey}`, debugName);
         result.push(item);
       }
       return makeSuccessConvertResult(result);
@@ -314,7 +325,7 @@ registerConverter({
       return 'Empty';
     return undefined;
   },
-  converter(source, key, type, childDataModel, dateFormat, required, params, options) {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName) {
     //尝试转换JSON字符串
     if (typeof source === 'string') {
       try {
@@ -326,7 +337,7 @@ registerConverter({
     if (typeof source === 'object' && source instanceof Array) {
       const result = [] as unknown[];
       for (let i = 0, c = source.length; i < c; i++) {
-        const item = convertArrayOrObjectItemSolver(source[i], i, key, childDataModel, dateFormat, required, params, options);
+        const item = convertArrayOrObjectItemSolver(source[i], i, key, childDataModel, dateFormat, required, params, options, `${debugKey}[${i}]`, debugName);
         result.push(item);
       }
       return makeSuccessConvertResult(result);
@@ -348,7 +359,7 @@ registerConverter({
       return 'Empty';
     return undefined;
   },
-  converter(source, key, type, childDataModel, dateFormat, required, params, options) {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName) {
     //尝试转换JSON字符串
     if (typeof source === 'string') {
       try {
@@ -360,7 +371,7 @@ registerConverter({
     if (typeof source === 'object' && source instanceof Array) {
       const result = new Set<unknown>();
       for (let i = 0, c = source.length; i < c; i++) {
-        const item = convertArrayOrObjectItemSolver(source[i], i, key, childDataModel, dateFormat, required, params, options);
+        const item = convertArrayOrObjectItemSolver(source[i], i, key, childDataModel, dateFormat, required, params, options, `${debugKey}[${i}]`, debugName);
         result.add(item);
       }
       return makeSuccessConvertResult(result);
@@ -380,13 +391,14 @@ registerConverter({
       return 'Empty';
     return undefined;
   },
-  converter(source, key, type, childDataModel, dateFormat, required, params, options) {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName) {
     if (typeof source === 'object' && source instanceof Set) {
       const result = [] as unknown[];
       let i = 0;
       for (const value of source) {
-        const item = convertArrayOrObjectItemSolver(value, i++, key, childDataModel, dateFormat, required, params, options);
+        const item = convertArrayOrObjectItemSolver(value, i++, key, childDataModel, dateFormat, required, params, options, `${debugKey}[${i}]`, debugName);
         result.push(item);
+        i++;
       }
       return makeSuccessConvertResult(result);
     }
@@ -407,7 +419,7 @@ registerConverter({
       return 'Empty';
     return undefined;
   },
-  converter(source, key, type, childDataModel, dateFormat, required, params, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
     //尝试转换JSON字符串
     if (typeof source === 'string') {
       try {
@@ -427,7 +439,7 @@ registerConverter({
         if (source instanceof DataModel)
           return makeSuccessConvertResult((source as DataModel).toServerSide(key));
         else if (typeof childDataModel === 'object')
-          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel, source as KeyValue).toServerSide(key));
+          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel, debugKey, source as KeyValue).toServerSide(key));
         else
           return makeSuccessConvertResult(DataObjectUtils.simpleClone(source));
       } else {
@@ -436,7 +448,7 @@ registerConverter({
         if (typeof childDataModel === 'function')
           return makeSuccessConvertResult(new childDataModel().fromServerSide(source as KeyValue, key));
         else if (typeof childDataModel === 'object')
-          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel).fromServerSide(source as KeyValue, key));
+          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel, debugKey).fromServerSide(source as KeyValue, key));
         else
           return makeSuccessConvertResult(DataObjectUtils.simpleClone(source));
       }
@@ -448,7 +460,7 @@ registerConverter({
 registerConverter({
   targetType: 'boolean',
   key: 'DefaultBoolean',
-  converter(source, key, type, childDataModel, dateFormat, required, params, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
     if (typeof source === 'string')
       return makeSuccessConvertResult(source.toLowerCase() === 'true' || source === "1");
     else if (typeof source === 'boolean')
@@ -466,7 +478,7 @@ registerConverter({
 registerConverter({
   targetType: 'string',
   key: 'DefaultString',
-  converter(source, key, type, childDataModel, dateFormat, required, params, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
     if (options.direction === 'client' && options.policy.startsWith('strict') && typeof source !== 'string')
       return makeFailConvertResult('Not a string');
 
@@ -491,7 +503,7 @@ registerConverter({
 registerConverter({
   targetType: 'number',
   key: 'DefaultNumber',
-  converter(source, key, type, childDataModel, dateFormat, required, params, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
     if (typeof source === 'object' && dayjs.isDayjs(source))
       return makeSuccessConvertResult(source.toDate().getTime());
     else if (typeof source === 'object' && source instanceof Date)
@@ -512,7 +524,7 @@ registerConverter({
 registerConverter({
   targetType: 'dayjs',
   key: 'DefaultDayjs',
-  converter(source, key, type, childDataModel, dateFormat, required, params, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
     if (typeof source === 'string')
       return makeSuccessConvertResult(source === '' ? null : parseDayjs(source, dateFormat || options.defaultDateFormat));
     else if (typeof source === 'number')
@@ -528,7 +540,7 @@ registerConverter({
 registerConverter({
   targetType: 'date',
   key: 'DefaultDate',
-  converter(source, key, type, childDataModel, dateFormat, required, params, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
     if (typeof source === 'string' || typeof source === 'number') {
       const date = new Date(source);
       if (DataDateUtils.isVaildDate(date))
@@ -544,7 +556,7 @@ registerConverter({
 registerConverter({
   targetType: 'json',
   key: 'DefaultJson',
-  converter(source, key, type, childDataModel, dateFormat, required, params, options)  {
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
     if (typeof source === 'string')  {
       const a = JSON.parse(source);
       return {
@@ -629,22 +641,28 @@ function convertInnernType(
   required: boolean, 
   params: Record<string, unknown>|undefined,
   options: ConvertItemOptions,
+  debugKey: string,
+  debugName: string,
 ) : unknown {
+
+  function printSource() {
+    return `Source: ${debugName}:${debugKey}.`
+  }
 
   const warn = options.policy.startsWith('warning');
   const strict = options.policy.startsWith('strict');
 
   //判空
   if (strict && !type)
-    throw new Error(`Convert ${key} faild: Must privide ${options.direction}Side.`);
+    throw new Error(`Convert ${key} faild: Must privide ${options.direction}Side. ${printSource()}`);
 
   //获取转换器
   let array = type ? converterArray.get(type) : null;
   if (!array) {
     if (strict)
-      throw new Error(`Convert ${key} faild: No converter was found for type ${type}.`);
+      throw new Error(`Convert ${key} faild: No converter was found for type ${type}. ${printSource()} `);
     if (warn && type !== '') 
-      logWarn(`Convert ${key} faild: No converter was found for type ${type}, raw data returned.`);
+      logWarn(`Convert ${key} faild: No converter was found for type ${type}, raw data returned. ${printSource()}`);
     return source;
   }
 
@@ -652,9 +670,9 @@ function convertInnernType(
   if (required) {
     if (typeof source === 'undefined' || source === null) {
       if (strict)
-        throw new Error(`Convert ${key} faild: Key ${key} is required but not provide or null.`);
+        throw new Error(`Convert ${key} faild: Key ${key} is required but not provide or null. ${printSource()}`);
       if (warn)
-        logWarn(`Convert ${key} warn: Key ${key} is required but not provide or null.`);
+        logWarn(`Convert ${key} warn: Key ${key} is required but not provide or null. ${printSource()}`);
     }
   }
 
@@ -667,9 +685,9 @@ function convertInnernType(
       const error = convert.preRequireCheckd(source);
       if (error) {
         if (strict)
-          throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. ${error}.`);
+          throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Error: ${error}. ${printSource()}`);
         if (warn)
-          logWarn(`Convert ${key} warn: Key ${key} is required but not provide. ${error}.`);
+          logWarn(`Convert ${key} warn: Key ${key} is required but not provide. Error: ${error}. ${printSource()}`);
       }
     }
 
@@ -683,6 +701,8 @@ function convertInnernType(
       required,
       params,
       options,
+      debugKey,
+      debugName,
     );
     if (result.success)
       return result.result;
@@ -691,14 +711,14 @@ function convertInnernType(
   }
 
   if (strict && required) {
-    logError(`Convert ${key} faild: All converter was failed for type ${type}: ${convertFailMessages.join(',')}. Source: `, source);
+    logError(`Convert ${key} faild: All converter was failed for type ${type}: ${convertFailMessages.join(',')}. ${printSource()} Value: `, source);
     throw new Error(`Convert ${key} faild: All converter was failed for type ${type}.`);
   }
   if (warn)
-    logWarn(`Convert ${key} faild: All converter was failed for type ${type}: ${convertFailMessages.join(',')}. Source: `, source);
+    logWarn(`Convert ${key} faild: All converter was failed for type ${type}: ${convertFailMessages.join(',')}. ${printSource()} Value: `, source);
   return undefined;
 }
-function convertDataItem(source: unknown, key: string, item: DataConvertItem, options: ConvertItemOptions) : unknown {
+function convertDataItem(source: unknown, key: string, item: DataConvertItem, options: ConvertItemOptions, debugKey: string, debugName: string) : unknown {
   const policyRequired = options.policy.endsWith('required');
 
   if (options.direction === 'server') 
@@ -718,6 +738,8 @@ function convertDataItem(source: unknown, key: string, item: DataConvertItem, op
         (item.serverSideRequired === true || (policyRequired && item.serverSideRequired !== false)), 
         item.serverSideParam, 
         options,
+        debugKey,
+        debugName,
       );
     }
   } 
@@ -736,7 +758,9 @@ function convertDataItem(source: unknown, key: string, item: DataConvertItem, op
         item.clientSide, 
         (item.clientSideRequired === true || (policyRequired && item.clientSideRequired !== false)), 
         item.clientSideParam, 
-        options
+        options,
+        debugKey,
+        debugName,
       );
     }
   }

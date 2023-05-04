@@ -229,6 +229,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
   private _classCreator: (new() => T)|undefined;
   private _classDebugName = '';
+  _classPrevDebugKey = '';
 
   /**
    * 创建实例
@@ -490,7 +491,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
           //判空
           const clientValue = data[serverKey];
           if (typeof clientValue === 'undefined' || clientValue === null)
-            throw new Error(`Convert ${key} faild: Key ${key} is required but not provide.`);
+            throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Source: DataModel fromServerSide Check; Obj:${this._classDebugName + ' ' + this._classPrevDebugKey} ServerKey:${serverKey} ConvertTableKey:${key}`);
         }
       }
       //转换
@@ -508,6 +509,8 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
                 (nameKeySup ? (nameKeySup + "."): '') + key,
                 convert,
                 options,
+                key,
+                this._classDebugName + ' ' + this._classPrevDebugKey,
               );
             }
             this.set(clientKey, source);
@@ -552,7 +555,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
       ) {
         const clientValue = this[key];
         if (typeof clientValue === 'undefined' || clientValue === null)
-          throw new Error(`Convert ${key} faild: Key ${key} is required but not provide.`);
+          throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Source: DataModel toServerSide Check; Obj:${this._classDebugName + ' ' + this._classPrevDebugKey} ConvertTableKey:${key}`);
       }
     }
     //转换
@@ -570,13 +573,15 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
         const convertArray = convertItem instanceof Array ? convertItem : [ convertItem ];
         const serverKey = this._nameMapperClient[key] || key;
         if (convertItem && convertArray.length > 0) {
-          let source = thisData;
+          let source = thisData as unknown;
           for (const convert of convertArray) {
             source = DataConverter.convertDataItem(
               source,
               (nameKeySup ? (nameKeySup + ".") : '') + key,
               convert,
-              options
+              options,
+              key,
+              this._classDebugName + ' ' + this._classPrevDebugKey,
             );
           }
           data[serverKey] = source;
