@@ -599,13 +599,47 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
   /**
    * 克隆一份
-   * @param classCreator
+   * @param deepClone 是否深克隆，深克隆将会克隆每一个字对象
    * @returns
    */
-  public clone() : T {
+  public clone(deepClone = false) : T {
     if (!this._classCreator)
       throw new Error(`This DataModel ${this._classDebugName} can not be clone.`);
-    return new this._classCreator().fromServerSide(this.getLastServerSideData()) as T;
+    const newObjet = (new this._classCreator()) as unknown as typeof this;
+
+    function cloneKey(val : unknown) : unknown {
+      if (typeof val === 'bigint' || typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') 
+        return val;
+      else if (typeof val === 'object') {
+        if (deepClone) {
+          if (val instanceof DataModel) 
+            return val.clone(deepClone);
+          else if (val instanceof Array) 
+            return val.map(cloneKey);
+          else if (val instanceof Map) {
+            const map = new Map();
+            for (const [key,value] of val) 
+              map.set(key, cloneKey(value))
+            return map
+          }
+          else if (val instanceof Set)  {
+            const set = new Set();
+            for (const value of val) 
+              set.add(cloneKey(value))
+            return set
+          }
+        } else { 
+          return val;
+        }
+      }
+    }
+
+    for (const key in this) {
+      if (Object.prototype.hasOwnProperty.call(this, key))
+        (newObjet as Record<string, any>)[key] = cloneKey(this[key]);
+    }
+
+    return newObjet as unknown as T;
   }
 
   //值获取、设置方法
