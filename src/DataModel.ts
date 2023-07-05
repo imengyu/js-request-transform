@@ -626,8 +626,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
     function cloneKey(isConfigKey: boolean, val : unknown) : unknown {
       if (typeof val === 'bigint' || typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
-        if (!isConfigKey || cloneConfig)
-          return val;
+        return (!isConfigKey || cloneConfig) ? val : undefined;
       }
       else if (typeof val === 'function') {
         if (isConfigKey && cloneConfig)
@@ -642,7 +641,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
           if (val instanceof DataModel) 
             return val.clone(config);
           else if (val instanceof Array) 
-            return val.map(cloneKey);
+            return val.map((v) => cloneKey(false, v));
           else if (val instanceof Map) {
             const map = new Map();
             for (const [key,value] of val) 
@@ -654,11 +653,14 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
             for (const value of val) 
               set.add(cloneKey(false, value))
             return set
+          } else {
+            return DataObjectUtils.simpleClone(val, true);
           }
         } else { 
           return val;
         }
       }
+      return undefined;
     }
 
     for (const key in this) {

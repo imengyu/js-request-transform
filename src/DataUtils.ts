@@ -21,10 +21,10 @@ export const DataObjectUtils = {
    * @param obj 要克隆的对象
    * @returns 新对象
    */
-  simpleClone<T>(obj: T): T {
+  simpleClone<T>(obj: T, deepArray = false): T {
     let temp: KeyValue | Array<KeyValue> | null = null;
     if (obj instanceof Array) {
-      temp = obj.concat();
+      temp = deepArray ? obj.map(k => this.simpleClone(k, deepArray)) : obj.concat();
     }
     else if (typeof obj === 'object') {
       temp = {} as KeyValue;
