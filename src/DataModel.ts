@@ -599,33 +599,60 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
   /**
    * 克隆一份
-   * @param deepClone 是否深克隆，深克隆将会克隆每一个字对象
+   * @param config 克隆配置
    * @returns
    */
-  public clone(deepClone = false) : T {
+  public clone(config?: {
+    /**
+     * 是否深克隆，深克隆将会克隆每一个子对象。默认false
+     */
+    deepClone?: boolean,
+    /**
+     * 是否克隆当前对象上的函数（不包括 _ 开头的内置函数）。默认false
+     */
+    cloneFuction?: boolean,
+    /**
+     * 是否克隆当前对象上的配置。默认true
+     */
+    cloneConfig?: boolean,
+  }) : T {
     if (!this._classCreator)
       throw new Error(`This DataModel ${this._classDebugName} can not be clone.`);
+
+    const deepClone = config?.deepClone ?? false;
+    const cloneFuction = config?.cloneFuction ?? false;
+    const cloneConfig = config?.cloneConfig ?? true;
     const newObjet = (new this._classCreator()) as unknown as typeof this;
 
-    function cloneKey(val : unknown) : unknown {
-      if (typeof val === 'bigint' || typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') 
-        return val;
+    function cloneKey(isConfigKey: boolean, val : unknown) : unknown {
+      if (typeof val === 'bigint' || typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+        if (!isConfigKey || cloneConfig)
+          return val;
+      }
+      else if (typeof val === 'function') {
+        if (isConfigKey && cloneConfig)
+          return val;
+        if (!isConfigKey && cloneFuction)
+          return val;
+      }
       else if (typeof val === 'object') {
+        if (isConfigKey && !cloneConfig)
+          return undefined;
         if (deepClone) {
           if (val instanceof DataModel) 
-            return val.clone(deepClone);
+            return val.clone(config);
           else if (val instanceof Array) 
             return val.map(cloneKey);
           else if (val instanceof Map) {
             const map = new Map();
             for (const [key,value] of val) 
-              map.set(key, cloneKey(value))
+              map.set(key, cloneKey(false, value))
             return map
           }
           else if (val instanceof Set)  {
             const set = new Set();
             for (const value of val) 
-              set.add(cloneKey(value))
+              set.add(cloneKey(false, value))
             return set
           }
         } else { 
@@ -636,7 +663,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
     for (const key in this) {
       if (Object.prototype.hasOwnProperty.call(this, key))
-        (newObjet as Record<string, any>)[key] = cloneKey(this[key]);
+        (newObjet as Record<string, any>)[key] = cloneKey(key.startsWith('_'), this[key]);
     }
 
     return newObjet as unknown as T;
