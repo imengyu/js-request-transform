@@ -98,8 +98,10 @@ export interface ConverterConfig {
   converter: ConverterHandler;
 }
 
-//快速模板类
-class FastTemplateDataModel extends DataModel {
+/**
+ * 快速模板类
+ */
+export class FastTemplateDataModel extends DataModel {
   public constructor(define: FastTemplateDataModelDefine, prevDebugKey: string, fastSetValues?: KeyValue) {
     super(undefined, 'FastTemplate');
     this._convertTable = define.convertTable;

@@ -12,7 +12,8 @@
  * See License.txt in the project root for license information.
  */
 
-import { DataModel } from "./DataModel";
+import { FastTemplateDataModel } from "./DataConverter";
+import { DataModel, FastTemplateDataModelDefine } from "./DataModel";
 import { KeyValue } from "./DataUtils";
 
 /**
@@ -21,8 +22,11 @@ import { KeyValue } from "./DataUtils";
  * @param rs 源数据实例
  * @returns 数据模型实例
  */
-export function transformDataModel<T extends DataModel>(c: new () => T, source: KeyValue) : T {
-  return new c().fromServerSide(source) as T;
+export function transformDataModel<T extends DataModel>(c: (new () => T)|FastTemplateDataModelDefine, source: KeyValue) : T {
+  if (typeof c === 'function')
+    return new c().fromServerSide(source) as T;
+  else
+    return new FastTemplateDataModel(c, '').fromServerSide(source) as T;
 }
 /**
  * 将JSON数组数据转为数据模型数组
@@ -30,10 +34,13 @@ export function transformDataModel<T extends DataModel>(c: new () => T, source: 
  * @param rs 源数据数组
  * @returns 数据模型数组
  */
-export function transformArrayDataModel<T extends DataModel>(c: new () => T, source: KeyValue[]) : T[] {
+export function transformArrayDataModel<T extends DataModel>(c: (new () => T)|FastTemplateDataModelDefine, source: KeyValue[]) : T[] {
   const array = [] as T[];
   for (const item of source) {
-    array.push(new c().fromServerSide(item) as T);
+    if (typeof c === 'function') 
+      array.push(new c().fromServerSide(item) as T);
+    else
+      array.push(new FastTemplateDataModel(c, '').fromServerSide(item) as T);
   }
   return array;
 }
