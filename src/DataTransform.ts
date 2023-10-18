@@ -34,8 +34,12 @@ export function transformDataModel<T extends DataModel>(c: (new () => T)|FastTem
  * @param rs 源数据数组
  * @returns 数据模型数组
  */
-export function transformArrayDataModel<T extends DataModel>(c: (new () => T)|FastTemplateDataModelDefine, source: KeyValue[]) : T[] {
+export function transformArrayDataModel<T extends DataModel>(c: (new () => T)|FastTemplateDataModelDefine, source: KeyValue[], sourceKeyName: string) : T[] {
   const array = [] as T[];
+  if (typeof source === 'undefined')
+    throw new Error(`transformArrayDataModel fail: The required field ${sourceKeyName} is not provide.`);
+  if (!(source instanceof Array))
+    throw new Error(`transformArrayDataModel fail: The required field ${sourceKeyName} is not a array.`);
   for (const item of source) {
     if (typeof c === 'function') 
       array.push(new c().fromServerSide(item) as T);
