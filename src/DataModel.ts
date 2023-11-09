@@ -10,7 +10,7 @@
  */
 
 import { ConverterDataDirection, ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
-import { DataObjectUtils, KeyValue, logError, logWarn, throwError } from "./DataUtils";
+import { DataObjectUtils, KeyValue, logError, logWarn, throwError, throwOrWarnError } from "./DataUtils";
 
 export type DataConvertCustomFn = (
   /**
@@ -380,6 +380,24 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
   public _lastServerSideData : KeyValue|null = null;
 
+  /**
+   * 设置字段的名称映射表。
+   * 此函数是对两个字段 _nameMapperServer _nameMapperClient 的封装，合二为一，
+   * 你只需传入之前的 _nameMapperServer 字段，此方法将会自动为你设置相反的 _nameMapperClient
+   * 转换表数据。
+   * 
+   * 左边是服务端名称，右边是客户端名称。
+   * * 效果：服务端字段是 a ，客户端转换之后会把它 赋值到名称为 b 的属性。
+   * * 注：在转换表 convertTable 中使用的字段名称是 b 而不是 a。
+   * @param mapper 服务端至客户端字段的名称映射表
+   */
+  public setNameMapper(mapper: { [index: string]: string }) {
+    this._nameMapperServer = mapper;
+    for (const key in mapper) {
+      this._nameMapperClient[mapper[key]] = key;
+    }
+  }
+
   //获取数据方法
   //=========================================
 
@@ -520,7 +538,6 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
         }
       }
     }
-
     this._afterSolveServer && this._afterSolveServer();
     return this;
   }
@@ -537,10 +554,11 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     };
 
     //调用预处理回调
-    this._beforeSolveServer?.(data);
+    this._beforeSolveClient?.();
 
     //字段检查提供
     const isRequiredMode = this._convertPolicy.endsWith('required');
+    const isStrictMode = this._convertPolicy.startsWith('strict');
     for (const key in this._convertTable) {
       let convertItem = this._convertTable[key];
       if (convertItem instanceof Array)
@@ -571,7 +589,6 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
         const convertItem = this._convertKeyType?.(key, 'server') || this._convertTable[key];
         const convertArray = convertItem instanceof Array ? convertItem : [ convertItem ];
-        const serverKey = this._nameMapperClient[key] || key;
         if (convertItem && convertArray.length > 0) {
           let source = thisData as unknown;
           for (const convert of convertArray) {
@@ -584,13 +601,32 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
               this._classDebugName + ' ' + this._classPrevDebugKey,
             );
           }
-          data[serverKey] = source;
+          data[key] = source;
         }
         else if(!isRequiredMode)
-          data[serverKey] = thisData; //直接拷贝
+          data[key] = thisData; //直接拷贝
       }
     }
+
+    //调用转换
     this._afterSolveClient && this._afterSolveClient(data);
+
+    //将本地字段映射到服务器字段
+    for (const key in data) {
+      const serverKey = this._nameMapperClient[key] || key;
+      if (serverKey === key)
+        continue;
+
+      //有重复的数据警告
+      if (data[serverKey] !== undefined) {
+        throwOrWarnError(`Detected field overlap in the mapper table, raw field name ${key}, to server field name ${serverKey}, ` +
+          `which may be due to duplicate fields in your _nameMapperClient table!`, isStrictMode);
+      }
+
+      data[serverKey] = data[key];
+      data[key] = undefined;
+    }
+
     return data;
   }
 

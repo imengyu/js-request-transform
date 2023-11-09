@@ -598,6 +598,65 @@ registerConverter({
   },
 });
 
+//default
+
+/**
+ * 添加默认值转换器
+ */
+export interface ConverterAddDefaultValueParams {
+  /**
+   * 默认值
+   */
+  defaultValue: any,
+  /**
+   * 用于检查值是否需要添加默认值，如果为空，则判断源数据为false时添加默认值
+   * @param v 
+   * @returns 
+   */
+  checkNeedAddDefaultValue?: (v: any) => boolean,
+}
+
+registerConverter({
+  targetType: 'addDefaultValue',
+  key: 'AddDefaultValue',
+  converter(source, key, type, childDataModel, dateFormat, required, _params, options, debugKey, debugName)  {
+    const params = _params as unknown as ConverterAddDefaultValueParams || {};
+    if (params.checkNeedAddDefaultValue && params.checkNeedAddDefaultValue(source))
+      return makeSuccessConvertResult(params.defaultValue);
+    else if (!params.checkNeedAddDefaultValue && !source)
+      return makeSuccessConvertResult(params.defaultValue);
+    return makeSuccessConvertResult(source);
+  },
+});
+
+//multiple
+
+/**
+ * 乘或者除倍数转换器
+ */
+export interface ConverterMultipleParams {
+  /**
+   * 乘或者除
+   */
+  type: 'multiply'|'divide',
+  /**
+   * 乘数或者除数
+   */
+  multiple: number,
+}
+
+registerConverter({
+  targetType: 'multiple',
+  key: 'Multiple',
+  converter(source, key, type, childDataModel, dateFormat, required, _params, options, debugKey, debugName)  {
+    const params = _params as unknown as ConverterMultipleParams;
+    return makeSuccessConvertResult(params.type === 'divide' ? 
+      (source as number / params.multiple) :
+      (source as number * params.multiple)
+    );
+  },
+});
+
 //转换器主体
 //========================================
 

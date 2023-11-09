@@ -11,6 +11,9 @@ export function logError(message: string, obj?: unknown) {
 export function throwError(message: string) {
   throw new Error(tag + message);
 }
+export function throwOrWarnError(message: string, strict: boolean) {
+  strict ? throwError(message) : logWarn(message);
+}
 
 /**
  * 数据转换器的对象工具类
