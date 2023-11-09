@@ -4,46 +4,44 @@
 
 这是一个为前端使用的数据模型转换层。可将后端返回的数据进行统一转换，成为前端方便使用的数据，同时，也支持提交前将前端的数据反向转换，变成后端可接受的数据。
 
-在我们开发CURD页面时，经常会遇到下面这几种情况：
+两步操作由库封装好，前端只需要配置好对象，就可以直接使用了，用起来无需多个繁琐的步骤。
 
-* 后端返回的某些数据不能直接在组件中使用，需要在设置到组件之前做一次转换。
+在我们开发CURD页面时，经常会遇到下面这几种情况，使用本库，可以帮你解决这些烦人的问题：
 
-  例如，后端接口的某个日期字段，格式是 YYYY-MM-DD 的字符串，在使用组件库时，组件需要传入一个 dayjs 对象。
+* 后端返回的某些数据不能直接在组件中使用，需要在设置到组件之前做一次转换。例如，后端接口的某个日期字段，格式是 YYYY-MM-DD 的字符串，在使用组件库时，组件需要传入一个 `Date` 对象。那么在常规方法中，我们需要在请求数据之后，赋值表单之前，需要手动将所有日期字段转为Date，然后在提交数据之前将所有Date转为YYYY-MM-DD 的字符串，再提交，比较麻烦。
 
-  那么在常规方法中，我们需要在请求数据之后，赋值表单之前，需要手动将所有日期字段转为dayjs，然后在提交数据之前将所有dayjs转为YYYY-MM-DD 的字符串，再提交。
+  > 遇到上面这些情况，我可以使用本库的类型转换功能，在请求后端数据之后，把需要的字段转为我需要的类型，可以转为预设类型，也可以自定义处理，也可以多步流水线处理。
 
-* 后端返回的字段有拼写错误，例如把 `videoUrl` 写成 `vedioUrl` （后端英语不行），我有强迫症，必须把它改过来。
-* 后端返回的数据结构无法在前端使用，需要转换才能在组件中使用。
+* 后端返回的字段有拼写错误，例如把 `videoUrl` 写成 `vedioUrl` （后端英语垃圾），我有强迫症，必须把它改过来。
+* 后端的字段都是胡乱写的，例如 `abc`, `x`, `y`, `dd`, `set`，如果直接在UI中引用，把我前端的UI相关代码字段弄得乱七八糟的，搞不清楚哪个字段是什么意思，后期维护起来看得眼花缭乱。
+* 后端特别喜欢胡乱改字段名称，偏偏这个字段被多个界面引用。例如：有多个界面显示了某个接口的 someString 属性，假如某一天后端吧字段名称 someString 改成了 thatString，那么我们在界面显示的地方也需要修改名称。以上情况如果只是一处两处还好，如果有好多地方都需要修改，那就非常麻烦了
 
-  例如：后端返回了这种数据格式
+  > 遇到上面这些情况，我就可以使用本库的字段映射功能，我可以将后端不好或者修改的字段名称映射到我自己的字段名称，前端逻辑和UI只需要引用这个字段，提交的时候会自动转为源字段，这样前端的命名就不会和后端过于耦合，就可以把后端不好的命名和习惯隔离在外！
+
+* 后端返回的数据结构不统一，例如一个资源的接收/提交格式不一致，需要转换。例如：后端在拉取资源时返回了这种数据格式
   ```
   {
     "someKey": { "value": 1 },
   }
   ```
-  提交时需要这种数据格式
+  但是提交资源时需要这种数据格式
   ```
   {
     "someKey": 1,
   }
   ```
 
-  那么常规方法中需要提交上传时对表单中的数据转换。
+  > 遇到上面这种情况，我可以在本库的模型定义中自定义转换格式或者转换器，所有使用到这个资源的数据转换都在一处完成，无需在每个UI中手动写多次转换代码，将转换代码与UI解耦。
 
-* 后端返回的数据属性名称发生了更改，需要更改多个界面的显示。
+* 后端返回一个大结构数据时有些时候居然会缺了几个字段，造成页面显示异常，居然甩锅给前端！
 
-  例如：后端返回了这种数据格式，有多个接口格式差不多
-  ```
-  {
-    "someString": "aaaaa",
-  }
-  ```
+  > 遇到上面这种情况，我可以在本库的模型定义中，增加严格检查，遇到后端不传某些字段或者字段异常时抛出错误，精准定位哪个字段丢失。
 
-  有多个界面显示了这些接口的 someString 属性，假如某一天后端吧字段名称 someString 改成了 thatString，那么我们在界面显示的地方也需要修改名称。
-
-以上情况如果只是一处两处还好，如果有好多地方都需要修改，那就非常麻烦了（关于上面几种情况的解决方法，请参考下方使用案例）。
+*（关于上面几种情况的解决方法，请参考下方使用案例）
 
 因此，本库就是为解决这些问题所写的，他的主要功能是：**将数据转换单独抽离出来，可以统一在这里转换出结构清晰的数据供UI组件使用，而无需与UI组件耦合，无需再重复好几个地方写转换数据的代码**。
+
+也可以用来方式习惯不好的后端干扰我们前端的开发，将不好的东西隔离在外面！
 
 主要的建议用法是：将其与您的 request/fecth 请求封装在一起，在请求/提交时自动转换相关数据，这样就无需在调用界面时还需要每个地方手动转换。
 
@@ -51,8 +49,11 @@
 
 * 支持数据双向转换，可以将数据从服务端返回的格式 》转为》 前端所需要的格式，又在提交时 从前端格式 》转为》 服务端需要的格式。
 * 支持多种字段类型的转换（字符串、数字、布尔值，Date，dayjs，数组，对象）。
+* 支持自定义转换器。
+* 支持多转换器流水线转换。
 * 支持数组、对象嵌套转换。
-* 支持检查数据是否提供，这在大量数据缺失某些字段排查时非常有用。
+* 支持字段名称映射。
+* 支持检查数据字段是否存在缺失，这在大量数据缺失某些字段排查时非常有用。
 
 希望此库可以为你的开发带来帮助！
 
@@ -66,9 +67,20 @@ npm i -S @imengyu/js-request-transform
 
 你可以将其与您的 request/fecth 请求封装在一起，在请求/提交时自动转换相关数据，这样就无需在调用界面时还需要每个地方手动转换。
 
-## 使用案例
+### 基础使用案例
 
 下面这个案例演示了数据双向转换与接口封装的功能。
+
+使用方法简要概括是：
+
+1. 首先定义模型
+    1. 对于接口返回的一个资源，例如产品、分类，你可以使用一个数据模型（DataModel）来描述，数据模型可以嵌套（对于多个相似子对象可以独立模型然后作为子字段引用）。
+    2. 根据你的严格要求，设置不同的转换策略
+        1. 如果你只需要转换几个字段，不考虑整体数据检查安全，可以使用默认的转换策略或者 warning 开头的转换策略
+        2. 如果你对所有字段有严格要求，需要每个字段格式全部正确，不能有任何字段缺失，可以使用 strict 开头的转换策略
+2. 定义转换表。你可以参考下方示例代码设置直接需要转换的字段。
+3. 定义字段。如果需要 TypeScript 定义或者是默认值，你还需要在 DataModel 上定义字段以及默认值。
+4. 编写接口，你可以参考下方示例代码在自己的接口中加入转换入口，将后端返回/前端上传字段进行转换。
 
 ```ts
 
@@ -267,6 +279,179 @@ const onFinishFailed = (errorInfo: any) => {
   console.error('Failed:', errorInfo);
 };
 </script>
+```
+
+### 类型转换功能
+
+#### 基础类型转换
+
+你可以在 _convertTable 中指定每个字段的转换目标格式，格式分为从服务端转为客户端（clientSide）和客户端转到服务端（serverSide）；
+目标格式可以是内置的转换器，也可以是自定义注册的转换器。
+
+```js
+this._convertTable = {
+  stringToBoolean: { clientSide: 'boolean', serverSide: 'string' },
+  stringToDate: { clientSide: 'date', serverSide: 'string' },
+}
+```
+
+#### 嵌套类型转换
+
+字段可以是数组，数组中的元素可以是嵌套的模型对象。你只需要指定 `clientSideChildDataModel` 或者 `serverSideChildDataModel`，并
+指定转换类型为 'array'，转换后目标字段中就是嵌套转换好的模型对象数组
+
+```js
+this._convertTable = {
+  keys: {
+    clientSide: 'array',
+    clientSideChildDataModel: PlayScriptProcessNodeKeyFrame,
+    serverSide: 'undefined',
+    serverSideRequired: false,
+  },
+}
+```
+
+同理字段可以是子对象，同样会为你自动嵌套转换好。
+
+```js
+this._convertTable = {
+  key: {
+    clientSide: 'array',
+    clientSideChildDataModel: ChildDataModel,
+    serverSide: 'undefined',
+    serverSideRequired: false,
+  },
+}
+```
+
+#### 多转换器
+
+一个字段可以由多个转换器逐步转换，这可以实现很多功能。例如下方示例先将输入的字符串转为 Date 对象，
+如果转换失败或者源对象未提供，则调用 addDefaultValue 默认转换器添加默认值。
+
+```js
+this._convertTable = {
+  createDate: [
+    {
+      clientSide: 'date',
+    },
+    {
+      clientSide: 'addDefaultValue',
+      clientSideParam: {
+        defaultValue: new Date(),
+      } as ConverterAddDefaultValueParams
+    },
+  ],
+}
+```
+
+#### 回调指定转换器
+
+当多个字段都要使用相同的转换配置时，一个个在 `_convertTable` 中指定会比较麻烦，
+因此提供了 `_convertKeyType` 回调用于根据字段名称批量返回转换配置功能。
+
+```ts
+this._convertKeyType = (key, direction) => {
+  if (direction === 'client' && key.startsWith('date')) {
+    return {
+      clientSide: 'date', serverSide: 'string'
+    }
+  }
+};
+```
+
+#### 自定义转换器
+
+你可以注册自己的转换器步骤，实现更多的功能。
+
+```ts
+import { DataConverter } from '';
+
+DataConverter.registerConverter({
+  targetType: 'multiple',
+  key: 'Multiple',
+  converter(source, key, type, childDataModel, dateFormat, required, _params, options, debugKey, debugName)  {
+    const params = _params as unknown as ConverterMultipleParams;
+    return DataConverter.makeSuccessConvertResult(params.type === 'divide' ? 
+      (source as number / params.multiple) :
+      (source as number * params.multiple)
+    );
+  },
+});
+
+```
+
+### 字段映射功能
+
+字段映射功能用于将后端的字段映射到前端自己写的、语义明确的字段名上面。
+
+可以使用 `_nameMapperServer` 或者 `_nameMapperClient` 设置单个方向的名称映射。
+
+```ts
+this._nameMapperServer = {
+  'ename': 'eventName',
+};
+```
+
+也可以使用 `setNameMapper` 函数设置双向的转换。
+
+```ts
+this.setNameMapper({
+  'ename': 'eventName',
+});
+```
+
+### 严格检查功能
+
+你可以设置严格模式，用于严格字段检查和转换。在严格模式下会检查缺失的字段，或者传入类型不正确的字段。
+
+* strict-required 全部严格模式：在转换表中的字段，进行转换，如果未定义或者转换失败，则抛出异常。未在表中定义的数据会被忽略，不会写入对象。
+* strict-provided 仅提供字段严格模式：在转换表中的字段同 strict-required，未在表中定义的字段数据按原样返回。
+
+```ts
+this._convertPolicy = 'strict-required';
+```
+
+### 自定义转换功能
+
+有多个回调函数允许进行自定义转换。
+
+```ts
+export class ShopProductDetail extends DataModel {
+  constructor() {
+    super();
+    this._convertPolicy = 'default';
+    this._blackList.toServer.push(
+      'level_names',
+    );
+    this._convertTable = {
+      name: { clientSide: 'string', serverSide: 'string' },
+      description: { clientSide: 'array', serverSide: 'string' },
+      //同上的category字段，为了统一获取与提交，界面只使用 level_ids。
+      levels: {
+        customToClientFn: (v: KeyValue[]) => {
+          this.level_names = v?.map(k => k.name as string) || [];
+          this.level_ids = v?.map(k => k.id as number) || [];
+          return undefined;
+        },
+        serverSide: 'undefined',
+      },
+      //这里是为了: 作者公司项目后端上传图片是不一样的，获取的时候是完整的 URL （例如https://xxxx.com/aaaaa.png）, 提交的时候是
+      //相对路径 （例如/aaaaa.png），所以我这里需要这样处理，把路径中的host去掉。
+      //当然，如果你的数据也有不满足要求的地方，你也可以参考这个写法自定义处理数据。
+      images: {
+        customToServerFn(source: string[]) { return source.map(k => removeUrlOrigin(k)); },
+        customToClientFn(source) { return source }
+      },
+    };
+  }
+
+  name = '';
+  description = '';
+  images = [] as string[];
+  level_names = [] as string[];
+  level_ids = [] as number[];
+}
 ```
 
 ## API 参考
@@ -521,3 +706,5 @@ DataConvertItem：
   * 如果输入是数值时间戳，则会使用 `new Date(time)` 进行转换。
 * json 转换为JSON数组，不进行内置递归对象处理。
 * dayjs 转换为dayjs对象。
+* addDefaultValue 用于当转换值为空时添加默认值，参数类型定义是 `ConverterAddDefaultValueParams` ，取消注册键值是 `AddDefaultValue`。
+* multiple 乘或者除倍数转换器，参数类型定义是 `ConverterMultipleParams` ，取消注册键值是 `Multiple`。
