@@ -214,6 +214,19 @@ export type FastTemplateDataModelDefine = {
 };
 export type ChildDataModel = (new () => DataModel)|FastTemplateDataModelDefine|string;
 
+export interface DataModelConvertOptions {
+  /**
+   * 筛选需要转换的字段。
+   * 如果不提供，则不进行筛选
+   * 也可以是回调，回调中传入当前字段，回调中返回true标识需要转换
+   */
+  filterKey?: string[]|undefined|((key: string) => boolean),
+  /**
+   * 是否禁用字段预检。默认 false
+   */
+  disableProvideCheck?: boolean|undefined,
+}
+
 /**
  * 双向数据模型实体类。
  * 该类提供了双向的数据转换。
@@ -450,12 +463,20 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
   //转换入口
   //=========================================
 
+  private convertCheckKeyFilter(key: string, userOptions?: DataModelConvertOptions|undefined) {
+    if (!userOptions || !userOptions.filterKey)
+      return true;
+    if (typeof userOptions.filterKey === 'function')
+      return userOptions.filterKey(key);
+    return userOptions.filterKey.includes(key);
+  }
+
   /**
    * 从服务端数据创建前端使用的数据模型
    * @param data 服务端数据
    * @returns
    */
-  public fromServerSide(data : KeyValue|undefined|null, nameKeySup?: string) : DataModel {
+  public fromServerSide(data : KeyValue|undefined|null, userOptions?: DataModelConvertOptions|undefined, nameKeySup?: string) : DataModel {
     this._lastServerSideData = data || null;
     if (typeof data === 'undefined' || data === null || typeof data === 'boolean' || typeof data === 'string' || typeof data === 'number') {
 
@@ -480,43 +501,51 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
         policy: this._convertPolicy,
         direction: 'client',
         defaultDateFormat: this._defaultDateFormat,
+        userOptions,
       };
       //调用预处理回调
       data = this._beforeSolveServer?.(data) || data;
 
       //字段检查提供
       const isRequiredMode = this._convertPolicy.endsWith('required');
-      for (const key in this._convertTable) {
-        let convertItem = this._convertTable[key];
-        if (convertItem instanceof Array)
-          convertItem = convertItem[0];
-        if (
-          (
-            (isRequiredMode && convertItem.clientSideRequired !== false)
-            || (convertItem.clientSideRequired === true)
-          )
-          && convertItem.clientSide !== 'undefined' 
-          && convertItem.clientSide !== 'null'
-        ) {
-          //转换映射字段名称
-          let serverKey = key;
-          for (const serverMapperKey in this._nameMapperServer) {
-            if (this._nameMapperServer[serverMapperKey] === key) {
-              serverKey = serverMapperKey;
-              break;
+      if (userOptions?.disableProvideCheck !== true) {
+        for (const key in this._convertTable) {
+          let convertItem = this._convertTable[key];
+          if (convertItem instanceof Array)
+            convertItem = convertItem[0];
+          if (
+            (
+              (isRequiredMode && convertItem.clientSideRequired !== false)
+              || (convertItem.clientSideRequired === true)
+            )
+            && convertItem.clientSide !== 'undefined' 
+            && convertItem.clientSide !== 'null'
+          ) {
+            //转换映射字段名称
+            let serverKey = key;
+            for (const serverMapperKey in this._nameMapperServer) {
+              if (this._nameMapperServer[serverMapperKey] === key) {
+                serverKey = serverMapperKey;
+                break;
+              }
             }
+            //判空
+            const clientValue = data[serverKey];
+            if (typeof clientValue === 'undefined' || clientValue === null)
+              throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Source: DataModel fromServerSide Check; Obj:${this._classDebugName + ' ' + this._classPrevDebugKey} ServerKey:${serverKey} ConvertTableKey:${key}`);
           }
-          //判空
-          const clientValue = data[serverKey];
-          if (typeof clientValue === 'undefined' || clientValue === null)
-            throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Source: DataModel fromServerSide Check; Obj:${this._classDebugName + ' ' + this._classPrevDebugKey} ServerKey:${serverKey} ConvertTableKey:${key}`);
         }
       }
       //转换
       for (const key in data) {
-        if (!this._blackList.toClient.includes(key)) {
+        const clientKey = this._nameMapperServer[key] || key;
+        const fullKey = (nameKeySup ? (nameKeySup + "."): '') + clientKey;
+
+        if (
+          !this._blackList.toClient.includes(clientKey) &&
+          this.convertCheckKeyFilter(fullKey, userOptions)
+        ) {
           //转换映射字段名称
-          const clientKey = this._nameMapperServer[key] || key;
           const convertItem = this._convertKeyType?.(clientKey, 'client') || this._convertTable[clientKey];
           const convertArray = convertItem instanceof Array ? convertItem : [ convertItem ];
           if (convertItem && convertArray.length > 0) {
@@ -524,7 +553,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
             for (const convert of convertArray) {
               source = DataConverter.convertDataItem(
                 source, 
-                (nameKeySup ? (nameKeySup + "."): '') + key,
+                fullKey,
                 convert,
                 options,
                 key,
@@ -545,12 +574,13 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
    * 转换当前数据模型为服务端格式
    * @returns 返回服务端格式数据
    */
-  public toServerSide(nameKeySup?: string) : KeyValue {
+  public toServerSide(userOptions?: DataModelConvertOptions|undefined, nameKeySup?: string) : KeyValue {
     const data = {} as KeyValue;
     const options : ConvertItemOptions = {
       policy: this._convertPolicy,
       direction: 'server',
       defaultDateFormat: this._defaultDateFormat,
+      userOptions,
     };
 
     //调用预处理回调
@@ -559,26 +589,34 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     //字段检查提供
     const isRequiredMode = this._convertPolicy.endsWith('required');
     const isStrictMode = this._convertPolicy.startsWith('strict');
-    for (const key in this._convertTable) {
-      let convertItem = this._convertTable[key];
-      if (convertItem instanceof Array)
-        convertItem = convertItem[0];
-      if (
-        (
-          (isRequiredMode && convertItem.serverSideRequired !== false)
-          || (convertItem.serverSideRequired === true)
-        )
-        && convertItem.serverSide !== 'undefined' 
-        && convertItem.serverSide !== 'null'
-      ) {
-        const clientValue = this[key];
-        if (typeof clientValue === 'undefined' || clientValue === null)
-          throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Source: DataModel toServerSide Check; Obj:${this._classDebugName + ' ' + this._classPrevDebugKey} ConvertTableKey:${key}`);
+    if (userOptions?.disableProvideCheck !== true) {
+      for (const key in this._convertTable) {
+        let convertItem = this._convertTable[key];
+        if (convertItem instanceof Array)
+          convertItem = convertItem[0];
+        if (
+          (
+            (isRequiredMode && convertItem.serverSideRequired !== false)
+            || (convertItem.serverSideRequired === true)
+          )
+          && convertItem.serverSide !== 'undefined' 
+          && convertItem.serverSide !== 'null'
+        ) {
+          const clientValue = this[key];
+          if (typeof clientValue === 'undefined' || clientValue === null)
+            throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Source: DataModel toServerSide Check; Obj:${this._classDebugName + ' ' + this._classPrevDebugKey} ConvertTableKey:${key}`);
+        }
       }
     }
     //转换
     for (const key in this) {
-      if (!key.startsWith('_') && !this._blackList.toServer.includes(key)) {
+      const fullKey = (nameKeySup ? (nameKeySup + ".") : '') + key;
+
+      if (
+        !key.startsWith('_') && 
+        !this._blackList.toServer.includes(key) &&
+        this.convertCheckKeyFilter(fullKey, userOptions)
+      ) {
         const thisData = (this as unknown as KeyValue)[key];
         if (typeof thisData === 'undefined' || typeof thisData === 'function')
           continue;
@@ -594,7 +632,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
           for (const convert of convertArray) {
             source = DataConverter.convertDataItem(
               source,
-              (nameKeySup ? (nameKeySup + ".") : '') + key,
+              fullKey,
               convert,
               options,
               key,

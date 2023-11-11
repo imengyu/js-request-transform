@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { ChildDataModel, ConvertTable, DataConvertItem, DataModel, FastTemplateDataModelDefine } from './DataModel';
+import { ChildDataModel, ConvertTable, DataConvertItem, DataModel, DataModelConvertOptions, FastTemplateDataModelDefine } from './DataModel';
 import { DataDateUtils, DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn } from './DataUtils';
 
 dayjs.extend(utc)
@@ -200,22 +200,22 @@ function convertArrayOrObjectItemSolver(
   if (options.direction === 'server')
   {
     if (source instanceof DataModel)
-      item = (source as DataModel).toServerSide(`${key}[${i}]`);
+      item = (source as DataModel).toServerSide(options.userOptions, `${key}[${i}]`);
     else if (typeof childDataModel === 'string')
       item = convertInnernType(source, `${key}[${i}]`, undefined, dateFormat, childDataModel, required, params, options, `${debugKey}[${i}]`, debugName);
     else if (typeof childDataModel === 'object')
-      item = new FastTemplateDataModel(childDataModel, `${debugKey}[${i}]`, source as KeyValue).toServerSide(`${key}[${i}]`);
+      item = new FastTemplateDataModel(childDataModel, `${debugKey}[${i}]`, source as KeyValue).toServerSide(options.userOptions, `${key}[${i}]`);
     else
       item = source;
   }
   else
   {
     if (typeof childDataModel === 'function')
-      item = new childDataModel().fromServerSide(source as KeyValue, `${key}[${i}]`);
+      item = new childDataModel().fromServerSide(source as KeyValue, options.userOptions, `${key}[${i}]`);
     else if (typeof childDataModel === 'string')
       item = convertInnernType(source, `${key}[${i}]`, undefined, dateFormat, childDataModel, required, params, options, `${debugKey}[${i}]`, debugName);
     else if (typeof childDataModel === 'object')
-      item = new FastTemplateDataModel(childDataModel, `${debugKey}[${i}]`).fromServerSide(source as KeyValue, `${key}[${i}]`);
+      item = new FastTemplateDataModel(childDataModel, `${debugKey}[${i}]`).fromServerSide(source as KeyValue, options.userOptions, `${key}[${i}]`);
     else
       item = source;
   }
@@ -439,18 +439,18 @@ registerConverter({
         if (source === null)
           return makeSuccessConvertResult(null);
         if (source instanceof DataModel)
-          return makeSuccessConvertResult((source as DataModel).toServerSide(key));
+          return makeSuccessConvertResult((source as DataModel).toServerSide(options.userOptions, key));
         else if (typeof childDataModel === 'object')
-          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel, debugKey, source as KeyValue).toServerSide(key));
+          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel, debugKey, source as KeyValue).toServerSide(options.userOptions, key));
         else
           return makeSuccessConvertResult(DataObjectUtils.simpleClone(source));
       } else {
         if (source === null)
           return makeSuccessConvertResult(null);
         if (typeof childDataModel === 'function')
-          return makeSuccessConvertResult(new childDataModel().fromServerSide(source as KeyValue, key));
+          return makeSuccessConvertResult(new childDataModel().fromServerSide(source as KeyValue, options.userOptions, key));
         else if (typeof childDataModel === 'object')
-          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel, debugKey).fromServerSide(source as KeyValue, key));
+          return makeSuccessConvertResult(new FastTemplateDataModel(childDataModel, debugKey).fromServerSide(source as KeyValue, options.userOptions, key));
         else
           return makeSuccessConvertResult(DataObjectUtils.simpleClone(source));
       }
@@ -690,6 +690,10 @@ export interface ConvertItemOptions {
    * 当前模型的转换策略
    */
   policy: ConvertPolicy;
+  /**
+   * 用户配置项
+   */
+  userOptions?: DataModelConvertOptions|undefined;
 }
 
 //转换主函数
