@@ -35,5 +35,6 @@ test('TestConvertCloneConfig', () => {
   expect(clonedModelWithDeep.deepClone.length).toBe(1);
   expect(clonedModelWithDeep.deepClone[0].v).toBe(0);
   expect(typeof clonedModelWithDeep._afterSolveClient).toBe('function');
-  expect(clonedModelNoConfig._afterSolveClient).toBe(undefined);
+  expect(typeof clonedModelNoConfig._afterSolveClient).toBe('function');
+  expect(sourceModel._afterSolveClient === clonedModelNoConfig._afterSolveClient).toBeFalsy();
 })

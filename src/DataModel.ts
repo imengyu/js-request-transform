@@ -698,34 +698,36 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     const cloneConfig = config?.cloneConfig ?? true;
     const newObjet = (new this._classCreator()) as unknown as typeof this;
 
-    function cloneKey(isConfigKey: boolean, val : unknown) : unknown {
+    function cloneKey(isConfigKey: boolean, val : unknown, defaultValue: unknown) : unknown {
       if (typeof val === 'bigint' || typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
-        return (!isConfigKey || cloneConfig) ? val : undefined;
+        if (isConfigKey)
+          return cloneConfig ? val : defaultValue;
+        return val;
       }
       else if (typeof val === 'function') {
-        if (isConfigKey && cloneConfig)
-          return val;
-        if (!isConfigKey && cloneFuction)
+        if (isConfigKey)
+          return cloneConfig ? val : defaultValue;
+        if (cloneFuction)
           return val;
       }
       else if (typeof val === 'object') {
         if (isConfigKey && !cloneConfig)
-          return undefined;
+          return defaultValue;
         if (deepClone) {
           if (val instanceof DataModel) 
             return val.clone(config);
           else if (val instanceof Array) 
-            return val.map((v) => cloneKey(false, v));
+            return val.map((v, index) => cloneKey(false, v, (defaultValue as Array<unknown>)[index]));
           else if (val instanceof Map) {
             const map = new Map();
             for (const [key,value] of val) 
-              map.set(key, cloneKey(false, value))
+              map.set(key, cloneKey(false, value, (defaultValue as Map<any, any>).get(key)))
             return map
           }
           else if (val instanceof Set)  {
             const set = new Set();
             for (const value of val) 
-              set.add(cloneKey(false, value))
+              set.add(cloneKey(false, value, undefined))
             return set
           } else {
             return DataObjectUtils.simpleClone(val, true);
@@ -739,7 +741,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
     for (const key in this) {
       if (Object.prototype.hasOwnProperty.call(this, key))
-        (newObjet as Record<string, any>)[key] = cloneKey(key.startsWith('_'), this[key]);
+        (newObjet as Record<string, any>)[key] = cloneKey(key.startsWith('_'), this[key], (newObjet as Record<string, any>)[key]);
     }
 
     return newObjet as unknown as T;

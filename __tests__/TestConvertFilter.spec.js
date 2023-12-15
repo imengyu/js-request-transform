@@ -78,9 +78,9 @@ test('TestConvertFilter', () => {
   expect(clientResultWithFuncFilter.key4).toBe(undefined);
   expect(clientResultWithFuncFilter.key5).toBe(5);
   expect(clientResultWithFuncFilter.key6).toBe(6);
-  expect(clientResult.keyNest.key1).toBe(undefined);
-  expect(clientResult.keyNest.key7).toBe(7);
-  expect(clientResult.keyNest.key8).toBe(8);
+  expect(clientResultWithFuncFilter.keyNest.key1).toBe(undefined);
+  expect(clientResultWithFuncFilter.keyNest.key7).toBe(7);
+  expect(clientResultWithFuncFilter.keyNest.key8).toBe(8);
 
   const clientToServerModel = new TestConvertFilterModel();
   clientToServerModel.key1 = 1;
