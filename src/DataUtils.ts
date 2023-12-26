@@ -6,9 +6,10 @@ export function logWarn(message: string, obj?: unknown) {
   console.warn(tag + message, obj);
 }
 export function logError(message: string, obj?: unknown, throwMessageAsError = false) {
-  console.error(tag + message, obj);
   if (throwMessageAsError)
     throwError(message);
+  else
+    console.error(tag + message, obj);
 }
 export function throwError(message: string) {
   throw new Error(tag + message);
