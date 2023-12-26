@@ -19,6 +19,11 @@
     "data",
     "model"
   ],
+  "files": [
+    "src",
+    "dist",
+    "README.md"
+  ],
   "author": "imengyu",
   "license": "MIT",
   "bugs": {
