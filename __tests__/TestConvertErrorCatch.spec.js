@@ -1,5 +1,5 @@
 const dayjs = require('dayjs');
-const { DataModel, DataConverter } = require('../dist');
+const { DataModel, DataConverter, transformDataModel } = require('../dist');
 
 DataConverter.configDayJsTimeZone('PRC');
 
@@ -62,6 +62,18 @@ test('TestConvertToClientErrorCatch', () => {
   }).toThrow();
   expect(() => {
     new TestConvertToClientErrorCatchSpeicalModel().fromServerSide(JSON.parse(sourceJson));
+  }).toThrow();
+}) 
+
+test('TestConvertToolsErrorCatch', () => {
+  expect(() => {
+    transformDataModel(TestConvertToClientErrorCatchUndefinedStringModel, '{"haha":"a}');
+  }).toThrow();
+  expect(() => {
+    transformDataModel(TestConvertToClientErrorCatchUndefinedStringModel, [ "haha" ]);
+  }).toThrow();
+  expect(() => {
+    transformDataModel(TestConvertToClientErrorCatchUndefinedStringModel, 'haha');
   }).toThrow();
 }) 
 test('TestConvertToServerErrorCatch', () => {

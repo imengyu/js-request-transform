@@ -5,8 +5,10 @@ export type KeyValue = Record<string, unknown>;
 export function logWarn(message: string, obj?: unknown) {
   console.warn(tag + message, obj);
 }
-export function logError(message: string, obj?: unknown) {
+export function logError(message: string, obj?: unknown, throwMessageAsError = false) {
   console.error(tag + message, obj);
+  if (throwMessageAsError)
+    throwError(message);
 }
 export function throwError(message: string) {
   throw new Error(tag + message);

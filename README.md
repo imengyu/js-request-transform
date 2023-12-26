@@ -2,9 +2,9 @@
 
 ## 简介
 
-这是一个为前端使用的数据模型转换层。可将后端返回的数据进行统一转换，成为前端方便使用的数据，同时，也支持提交前将前端的数据反向转换，变成后端可接受的数据。
+这是一个为前端使用的数据模型转换层/序列化层。可将后端返回的数据进行统一转换，成为前端方便使用的数据类，同时，也支持提交前将前端的数据反向转换，变成后端可接受的数据。
 
-两步操作由库封装好，前端只需要配置好对象，就可以直接使用了，用起来无需多个繁琐的步骤。
+这两步操作由库封装好，前端只需要配置好对象，就可以直接使用了，用起来无需多个繁琐的步骤。
 
 在我们开发CURD页面时，经常会遇到下面这几种情况，使用本库，可以帮你解决这些烦人的问题：
 
@@ -329,7 +329,9 @@ this._convertTable = {
 一个字段可以由多个转换器逐步转换，这可以实现很多功能。例如下方示例先将输入的字符串转为 Date 对象，
 如果转换失败或者源对象未提供，则调用 addDefaultValue 默认转换器添加默认值。
 
-```js
+* addDefaultValue 处于多转换器数组第一个时，字段空预检会跳过。
+
+```ts
 this._convertTable = {
   createDate: [
     {
@@ -363,6 +365,8 @@ this._convertKeyType = (key, direction) => {
 #### 自定义转换器
 
 你可以注册自己的转换器步骤，实现更多的功能。
+
+例如，下方是一个将数值乘或者除指定倍数的转换器（已内置到库中），他满足了后端数据与前端UI组件显示数值倍数不一样的问题。
 
 ```ts
 import { DataConverter } from '';
@@ -559,6 +563,7 @@ DataConvertItem：
 |clientSideDateFormat|当前key类型是dayjs时，自定义日期格式|string|
 |serverSideChildDataModel|当 clientSide 为 array/object 时，子项目要转换成的类型|`(new () => DataModel)`or`string`|
 |customToClientFn|自定义服务端至前端转换函数，指定此函数后 clientSide 属性无效|DataConvertCustomFn|
+|forceApply|设置强制转换字段名。默认情况下源数据中没有的字段不会调用转换器，如果你需要为不存在的字段设置默认值或者调用指定自定义转换器，可以使用此功能强制调用转换器，搭配 addDefaultValue 转换器。为字段设置转换器。当处于数组转换器中时，只判断第一个的 forceApply 值。默认：false|`boolean`or`undefined`|
 
 ##### DataConvertCustomFn
 
@@ -667,29 +672,45 @@ DataConvertItem：
 
 #### transformDataModel
 
-同 `new DataModel().fromServerSide(source)`。
+用于从服务端转为客户端数据，同 `new DataModel().fromServerSide(source)`。
 
 |参数|说明|类型|默认值|
 |--|--|--|--|
-|c|需要转换的目标类型|`new () => T`|-|
+|c|需要转换的目标类型|`(new () => T) or FastTemplateDataModelDefine`|-|
 |source|源数组|`KeyValue`|-|
+|userOptions|源数组|`其他转换自定义配置`|-|
 
 返回：`T`
 
 #### transformArrayDataModel
 
-将数组转为模型数组。
+用于从服务端转为客户端数据，将数组转为模型数组。
 
 |参数|说明|类型|默认值|
 |--|--|--|--|
 |c|需要转换的目标类型|`new () => T`|-|
 |source|源数组|`KeyValue[]`|-|
+|userOptions|源数组|`其他转换自定义配置`|-|
 
 返回：`T[]`
 
+#### transformWithConverter
+
+用于从服务端转为客户端数据，将JSON数据根据转换器名称转为指定数据模型或者基本类型。
+
+|参数|说明|类型|默认值|
+|--|--|--|--|
+|converterName|转换器名称|`string`|-|
+|source|源数据实例|`any`|-|
+|sourceKeyName|标识数据名称，用于异常显示|`string`|`'root'`|
+|arrayChildDataModel|当是数组或者集合等嵌套对象时，指定子对象的数据类型|`ChildDataModel`|`undefined`|
+|defaultDateFormat|默认日期格式|`string`|`'YYYY-MM-DD HH:mm:ss'`|
+|defaultConvertPolicy|默认转换策略|`ConvertPolicy`|`'strict-required'`|
+|userOptions|源数组|`其他转换自定义配置`|-|
+
 ### 内置转换类型定义
 
-这些内置注册都可以取消注册，他们的键值是 Default[TypeName] ，例如 undefined 的取消注册键值是 `DefaultUndefined`。
+这些内置注册都可以取消注册，除特殊说明，他们的键值是 Default[TypeName] ，例如 undefined 的取消注册键值是 `DefaultUndefined`。
 
 * undefined 相当于黑名单，永远都会转换为 `undefined` 。
 * null 强制转换为 `null` 。

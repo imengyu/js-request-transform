@@ -9,7 +9,7 @@
  * See License.txt in the project root for license information.
  */
 
-import { ConverterDataDirection, ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
+import { CONVERTER_ADD_DEFAULT, ConverterDataDirection, ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
 import { DataObjectUtils, KeyValue, logError, logWarn, throwError, throwOrWarnError } from "./DataUtils";
 
 export type DataConvertCustomFn = (
@@ -200,6 +200,17 @@ export interface DataConvertItem {
    * ```
    */
   customToClientFn?: DataConvertCustomFn;
+  /**
+   * 设置强制转换字段名。
+   * 默认情况下源数据中没有的字段不会调用转换器，如果你需要为不存在的字段
+   * 设置默认值或者调用指定自定义转换器，可以使用此功能强制调用转换器，搭配 addDefaultValue 转换
+   * 器。为字段设置转换器。
+   * 
+   * 当处于数组转换器中时，只判断第一个的 forceApply 值。
+   * 
+   * 默认：false
+   */
+  forceApply?: boolean;
 }
 
 export type ConvertTable = {
@@ -225,6 +236,19 @@ export interface DataModelConvertOptions {
    * 是否禁用字段预检。默认 false
    */
   disableProvideCheck?: boolean|undefined,
+  /**
+   * 是否启用从服务端转为客户端的基础类型强制预检。默认 false
+   * 
+   * 在严格模式下，从服务端转为客户端时，有以下类型时会进行类型的严格检查，
+   * 检查不通过会抛出异常。
+   * * number
+   * * boolean
+   * * string
+   * * object
+   * * array
+   * * set (需要 array )
+   */
+  enableClientStrictBaseTypeCheck?: boolean|undefined,
 }
 
 /**
@@ -478,22 +502,27 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
    */
   public fromServerSide(data : KeyValue|undefined|null, userOptions?: DataModelConvertOptions|undefined, nameKeySup?: string) : DataModel {
     this._lastServerSideData = data || null;
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch { /*Ignore error*/ }
+    }  
     if (typeof data === 'undefined' || data === null || typeof data === 'boolean' || typeof data === 'string' || typeof data === 'number') {
 
       //null与undefined，基本类型数据，不能转换
-      if (this._convertPolicy.startsWith('strict'))
-        throwError(`Try to convert a ${data === null ? 'null' : typeof data} to ${this._classDebugName}.`);
-      else if (this._convertPolicy.startsWith('warning'))
+      if (this._convertPolicy.startsWith('warning'))
         logWarn(`Try to convert a ${data === null ? 'null' : typeof data} to ${this._classDebugName}, a empty object was returned.`);
+      else
+        throwError(`Try to convert a ${data === null ? 'null' : typeof data} to ${this._classDebugName}.`);
       return this;
 
     } else if (data instanceof Array) {
 
       //数组数据，不能转换
-      if (this._convertPolicy.startsWith('strict'))
-        throwError(`Try to convert a array to ${this._classDebugName}. If you want to conver a array to DataModel, please use transformArrayDataModel function.`);
-      else if (this._convertPolicy.startsWith('warning'))
+      if (this._convertPolicy.startsWith('warning'))
         logWarn(`Try to convert a array to ${this._classDebugName}, a empty object was returned. If you want to conver a array to DataModel, please use transformArrayDataModel function.`);
+      else
+        throwError(`Try to convert a array to ${this._classDebugName}.`);
       return this;
 
     } else {
@@ -505,6 +534,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
       };
       //调用预处理回调
       data = this._beforeSolveServer?.(data) || data;
+
 
       //字段检查提供
       const isRequiredMode = this._convertPolicy.endsWith('required');
@@ -518,6 +548,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
               (isRequiredMode && convertItem.clientSideRequired !== false)
               || (convertItem.clientSideRequired === true)
             )
+            && convertItem.clientSide !== CONVERTER_ADD_DEFAULT
             && convertItem.clientSide !== 'undefined' 
             && convertItem.clientSide !== 'null'
           ) {
@@ -536,6 +567,17 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
           }
         }
       }
+
+      //收集强制应用转换器字段
+      const forceApplyProps : string[] = [];
+      for (const key in this._convertTable) {
+        let convertItem = this._convertTable[key];
+        if (convertItem instanceof Array)
+          convertItem = convertItem[0];
+        if (convertItem.forceApply)
+          forceApplyProps.push(key);
+      }
+
       //转换
       for (const key in data) {
         const clientKey = this._nameMapperServer[key] || key;
@@ -561,9 +603,36 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
               );
             }
             this.set(clientKey, source);
+
+            const i = forceApplyProps.indexOf(clientKey);
+            if (i >= 0)
+              forceApplyProps.splice(i, 1)
           }
           else if(!isRequiredMode)
             this.set(clientKey, data[key]); //直接拷贝
+        }
+      }
+
+      //有强制应用转换器字段没有被调用，现在以空值去调用他们的转换器
+      for (const key of forceApplyProps) {
+        const clientKey = this._nameMapperServer[key] || key;
+        const fullKey = (nameKeySup ? (nameKeySup + "."): '') + clientKey;
+
+        const convertItem = this._convertKeyType?.(clientKey, 'client') || this._convertTable[clientKey];
+        const convertArray = convertItem instanceof Array ? convertItem : [ convertItem ];
+        if (convertItem && convertArray.length > 0) {
+          let source = undefined;
+          for (const convert of convertArray) {
+            source = DataConverter.convertDataItem(
+              source, 
+              fullKey,
+              convert,
+              options,
+              key,
+              this._classDebugName + ' ' + this._classPrevDebugKey,
+            );
+          }
+          this.set(clientKey, source);
         }
       }
     }
@@ -599,6 +668,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
             (isRequiredMode && convertItem.serverSideRequired !== false)
             || (convertItem.serverSideRequired === true)
           )
+          && convertItem.serverSide !== CONVERTER_ADD_DEFAULT
           && convertItem.serverSide !== 'undefined' 
           && convertItem.serverSide !== 'null'
         ) {
@@ -608,6 +678,17 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
         }
       }
     }
+
+    //收集强制应用转换器字段
+    const forceApplyProps : string[] = [];
+    for (const key in this._convertTable) {
+      let convertItem = this._convertTable[key];
+      if (convertItem instanceof Array)
+        convertItem = convertItem[0];
+      if (convertItem.forceApply)
+        forceApplyProps.push(key);
+    }
+
     //转换
     for (const key in this) {
       const fullKey = (nameKeySup ? (nameKeySup + ".") : '') + key;
@@ -640,11 +721,39 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
             );
           }
           data[key] = source;
+
+          const i = forceApplyProps.indexOf(key);
+          if (i >= 0)
+            forceApplyProps.splice(i, 1)
         }
         else if(!isRequiredMode)
           data[key] = thisData; //直接拷贝
       }
     }
+
+    //有强制应用转换器字段没有被调用，现在以空值去调用他们的转换器
+    for (const key of forceApplyProps) {
+      const clientKey = this._nameMapperServer[key] || key;
+      const fullKey = (nameKeySup ? (nameKeySup + "."): '') + clientKey;
+
+      const convertItem = this._convertKeyType?.(key, 'server') || this._convertTable[key];
+      const convertArray = convertItem instanceof Array ? convertItem : [ convertItem ];
+      if (convertItem && convertArray.length > 0) {
+        let source = undefined;
+        for (const convert of convertArray) {
+          source = DataConverter.convertDataItem(
+            source,
+            fullKey,
+            convert,
+            options,
+            key,
+            this._classDebugName + ' ' + this._classPrevDebugKey,
+          );
+        }
+        data[key] = source;
+      }
+    }
+
 
     //调用转换
     this._afterSolveClient && this._afterSolveClient(data);

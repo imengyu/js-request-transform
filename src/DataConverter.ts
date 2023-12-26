@@ -23,6 +23,8 @@ dayjs.extend(timezone)
 //转换器数组
 const converterArray = new Map<string, ConverterConfig[]>();
 
+export const CONVERTER_ADD_DEFAULT = 'addDefaultValue';
+
 export type ConverterDataDirection = 'server'|'client';
 
 export type ConverterHandlerResult = {
@@ -328,6 +330,11 @@ registerConverter({
     return undefined;
   },
   converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName) {
+    
+    const baseTypeCheckResult = strictCheckServerBaseTypes(options, 'array', source, debugKey);
+    if (baseTypeCheckResult)
+      return baseTypeCheckResult;
+    
     //尝试转换JSON字符串
     if (typeof source === 'string') {
       try {
@@ -362,6 +369,11 @@ registerConverter({
     return undefined;
   },
   converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName) {
+    
+    const baseTypeCheckResult = strictCheckServerBaseTypes(options, 'array', source, debugKey);
+    if (baseTypeCheckResult)
+      return baseTypeCheckResult;
+    
     //尝试转换JSON字符串
     if (typeof source === 'string') {
       try {
@@ -410,6 +422,18 @@ registerConverter({
   },
 });
 
+function strictCheckServerBaseTypes(options: ConvertItemOptions, requiredType: string, source: unknown, debugKey: string) {
+  if (options.direction === 'client' && options.policy.startsWith('strict') && options.userOptions?.enableClientStrictBaseTypeCheck) { 
+    if (source === null)
+      return makeFailConvertResult(`Property '${debugKey}' require type '${requiredType}' but null provided.`);
+    if (requiredType === 'array' && !(source instanceof Array))
+      return makeFailConvertResult(`Property '${debugKey}' require array but it is not a array.`);
+    if (typeof source !== requiredType)
+      return makeFailConvertResult(`Property '${debugKey}' require type '${requiredType}' but '${typeof source}' provided.`);
+  }
+  return undefined;
+}
+
 //base
 registerConverter({
   targetType: 'object',
@@ -422,6 +446,11 @@ registerConverter({
     return undefined;
   },
   converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
+
+    const baseTypeCheckResult = strictCheckServerBaseTypes(options, 'object', source, debugKey);
+    if (baseTypeCheckResult)
+      return baseTypeCheckResult;
+
     //尝试转换JSON字符串
     if (typeof source === 'string') {
       try {
@@ -463,6 +492,11 @@ registerConverter({
   targetType: 'boolean',
   key: 'DefaultBoolean',
   converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
+    
+    const baseTypeCheckResult = strictCheckServerBaseTypes(options, 'boolean', source, debugKey);
+    if (baseTypeCheckResult)
+      return baseTypeCheckResult;
+
     if (typeof source === 'string')
       return makeSuccessConvertResult(source.toLowerCase() === 'true' || source === "1");
     else if (typeof source === 'boolean')
@@ -480,9 +514,11 @@ registerConverter({
 registerConverter({
   targetType: 'string',
   key: 'DefaultString',
-  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
-    if (options.direction === 'client' && options.policy.startsWith('strict') && typeof source !== 'string')
-      return makeFailConvertResult('Not a string');
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName) {
+
+    const baseTypeCheckResult = strictCheckServerBaseTypes(options, 'string', source, debugKey);
+    if (baseTypeCheckResult)
+      return baseTypeCheckResult;
 
     if (typeof source === 'string')
       return makeSuccessConvertResult(source);
@@ -506,6 +542,16 @@ registerConverter({
   targetType: 'number',
   key: 'DefaultNumber',
   converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
+    if (typeof source === 'string') {
+      const f = parseFloat(source as string);
+      if (!isNaN(f)) //nan 表示转换失败
+        return makeSuccessConvertResult(f);
+    }
+
+    const baseTypeCheckResult = strictCheckServerBaseTypes(options, 'object', source, debugKey);
+    if (baseTypeCheckResult)
+      return baseTypeCheckResult;
+
     if (typeof source === 'object' && dayjs.isDayjs(source))
       return makeSuccessConvertResult(source.toDate().getTime());
     else if (typeof source === 'object' && source instanceof Date)
@@ -514,11 +560,6 @@ registerConverter({
       return makeSuccessConvertResult(source);
     else if (source === null) {
       return makeFailConvertResult('Number should not be null');
-    }
-    else if (typeof source === 'string') {
-      const f = parseFloat(source as string);
-      if (!isNaN(f)) //nan 表示转换失败
-        return makeSuccessConvertResult(f);
     }
     return makeFailConvertResult();
   },
@@ -593,8 +634,8 @@ registerConverter({
 registerConverter({
   targetType: 'original',
   key: 'DefaultOriginal',
-  converter(source)  {
-    return makeSuccessConvertResult(source);
+  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
+    return makeSuccessConvertResult(source ?? params?.defaultValue);
   },
 });
 
@@ -617,7 +658,7 @@ export interface ConverterAddDefaultValueParams {
 }
 
 registerConverter({
-  targetType: 'addDefaultValue',
+  targetType: CONVERTER_ADD_DEFAULT,
   key: 'AddDefaultValue',
   converter(source, key, type, childDataModel, dateFormat, required, _params, options, debugKey, debugName)  {
     const params = _params as unknown as ConverterAddDefaultValueParams || {};
@@ -723,7 +764,7 @@ function convertInnernType(
 
   //获取转换器
   let array = type ? converterArray.get(type) : null;
-  if (!array) {
+  if (!array || array.length === 0) {
     if (strict)
       throw new Error(`Convert ${key} faild: No converter was found for type ${type}. ${printSource()} `);
     if (warn && type !== '') 
@@ -732,7 +773,7 @@ function convertInnernType(
   }
 
   //判空
-  if (required) {
+  if (required && array[0].targetType !== CONVERTER_ADD_DEFAULT) {
     if (typeof source === 'undefined' || source === null) {
       if (strict)
         throw new Error(`Convert ${key} faild: Key ${key} is required but not provide or null. ${printSource()}`);
@@ -775,12 +816,10 @@ function convertInnernType(
       convertFailMessages.push(result.convertFailMessage);
   }
 
-  if (strict && required) {
-    logError(`Convert ${key} faild: All converter was failed for type ${type}: ${convertFailMessages.join(',')}. ${printSource()} Value: `, source);
-    throw new Error(`Convert ${key} faild: All converter was failed for type ${type}.`);
-  }
+  if (strict && required)
+    logError(`Convert '${key}' (${type}) faild: ${convertFailMessages.join(',') || 'default error'}. ${printSource()} Value: `, source, true);
   if (warn)
-    logWarn(`Convert ${key} faild: All converter was failed for type ${type}: ${convertFailMessages.join(',')}. ${printSource()} Value: `, source);
+    logWarn(`Convert '${key}' (${type}) faild: ${convertFailMessages.join(',') || 'default error'}. ${printSource()} Value: `, source);
   return undefined;
 }
 function convertDataItem(source: unknown, key: string, item: DataConvertItem, options: ConvertItemOptions, debugKey: string, debugName: string) : unknown {
