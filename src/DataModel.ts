@@ -306,7 +306,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     }
    * ```
    */
-  public _afterSolveServer: (() => void) | null = null;
+  public _afterSolveServer: ((self: DataModel) => void) | null = null;
   /**
    * 从本地端转换后的后处理回调。
    * 
@@ -338,20 +338,20 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     };
    * ```
    */
-  public _afterSolveClient: ((data: KeyValue) => void) | null = null;
+  public _afterSolveClient: ((data: KeyValue, self: DataModel) => void) | null = null;
   /**
    * 从服务端转换前的处理回调。
    * 
    * 此回调将在所有转换器被调用之前调用，服务端数据通过 data 参数传入，
    * 你可以选择修改或者返回新的数据，之后的转换器将会使用你修改过的数据。
    */
-  public _beforeSolveServer: ((data: KeyValue) => KeyValue) | null = null;
+  public _beforeSolveServer: ((data: KeyValue, self: DataModel) => KeyValue) | null = null;
   /**
    * 从本地端转换前的处理回调。
    * 
    * 此回调将在所有转换器被调用之前调用。
    */
-  public _beforeSolveClient: (() => void) | null = null;
+  public _beforeSolveClient: ((self: DataModel) => void) | null = null;
   /**
    * 统一设置默认的日期格式。当 _convertTable 中未指定日期格式时，使用此日期格式。
    */
@@ -533,7 +533,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
         userOptions,
       };
       //调用预处理回调
-      data = this._beforeSolveServer?.(data) || data;
+      data = this._beforeSolveServer?.(data, this) || data;
 
 
       //字段检查提供
@@ -636,7 +636,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
         }
       }
     }
-    this._afterSolveServer && this._afterSolveServer();
+    this._afterSolveServer && this._afterSolveServer(this);
     return this;
   }
   /**
@@ -653,7 +653,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     };
 
     //调用预处理回调
-    this._beforeSolveClient?.();
+    this._beforeSolveClient?.(this);
 
     //字段检查提供
     const isRequiredMode = this._convertPolicy.endsWith('required');
@@ -756,7 +756,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
 
     //调用转换
-    this._afterSolveClient && this._afterSolveClient(data);
+    this._afterSolveClient && this._afterSolveClient(data, this);
 
     //将本地字段映射到服务器字段
     for (const key in data) {
