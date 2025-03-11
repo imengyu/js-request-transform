@@ -10,7 +10,7 @@
  */
 
 import { CONVERTER_ADD_DEFAULT, ConverterDataDirection, ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
-import { DataObjectUtils, KeyValue, logError, logWarn, throwError, throwOrWarnError } from "./DataUtils";
+import { DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn, throwError, throwOrWarnError } from "./DataUtils";
 
 export type DataConvertCustomFn = (
   /**
@@ -224,6 +224,7 @@ export type FastTemplateDataModelDefine = {
   nameMapperClient ?: { [index: string]: string },
 };
 export type ChildDataModel = (new () => DataModel)|FastTemplateDataModelDefine|string;
+export type NameMapperCase = 'Camel'|'Pascal'|'Snake'|'Midline';
 
 export interface DataModelConvertOptions {
   /**
@@ -416,6 +417,8 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
   };
 
   public _lastServerSideData : KeyValue|null = null;
+  public _serverNameMaperCase : NameMapperCase|null = null;
+  public _clientNameMaperCase : NameMapperCase|null = null;
 
   /**
    * 设置字段的名称映射表。
@@ -433,6 +436,34 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     for (const key in mapper) {
       this._nameMapperClient[mapper[key]] = key;
     }
+  }
+  /**
+   * 自动在转换至服务端之前将所有字段名称按指定规则转换为指定的命名规则，
+   * 在 _nameMapperServer 中强制指定的字段不受影响。
+   * 
+   * @param serverNameCase 服务端名称的命名规则。
+   */
+  public setNameMapperServerCase(serverNameCase: NameMapperCase|null) {
+    this._serverNameMaperCase = serverNameCase
+  }
+  /**
+   * 自动在转换至客户端之前将所有字段名称按指定规则转换为指定的命名规则，
+   * 在 _nameMapperClient 中强制指定的字段不受影响。
+   * 
+   * @param serverNameCase 客户端名称的命名规则。
+   */
+  public setNameMapperClientCase(clientNameCase: NameMapperCase|null) {
+    this._clientNameMaperCase = clientNameCase
+  }
+  /**
+   * 自动在转换至客户端/服务端之前将所有字段名称按指定
+   * 规则转换为指定的命名规则，等同于 `setNameMapperClientCase` 和 `setNameMapperServerCase` 。
+   * @param clientNameCase 客户端名称的命名规则。
+   * @param serverNameCase 服务端名称的命名规则。
+   */
+  public setNameMapperCase(clientNameCase: NameMapperCase|null, serverNameCase: NameMapperCase|null) {
+    this._clientNameMaperCase = clientNameCase;
+    this._serverNameMaperCase = serverNameCase;
   }
 
   //获取数据方法
@@ -493,6 +524,28 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     if (typeof userOptions.filterKey === 'function')
       return userOptions.filterKey(key);
     return userOptions.filterKey.includes(key);
+  }
+  private getKeyName(sourceKey: string, toDirection: ConverterDataDirection) {
+    let result = '';
+    switch (toDirection) {
+      case 'client':
+        result = this._nameMapperServer[sourceKey];
+        if (result)
+          return result;
+        result = sourceKey;
+        if (this._clientNameMaperCase)
+          return DataStringUtils.covertStringToCase(this._clientNameMaperCase, result);
+        break;
+      case 'server':
+        result = this._nameMapperClient[sourceKey];
+        if (result)
+          return result;
+        result = sourceKey;
+        if (this._serverNameMaperCase)
+          return DataStringUtils.covertStringToCase(this._serverNameMaperCase, result);
+        break;
+    }
+    return result;
   }
 
   /**
@@ -580,7 +633,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
       //转换
       for (const key in data) {
-        const clientKey = this._nameMapperServer[key] || key;
+        const clientKey = this.getKeyName(key, 'client');
         const fullKey = (nameKeySup ? (nameKeySup + "."): '') + clientKey;
 
         if (
@@ -615,7 +668,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
       //有强制应用转换器字段没有被调用，现在以空值去调用他们的转换器
       for (const key of forceApplyProps) {
-        const clientKey = this._nameMapperServer[key] || key;
+        const clientKey = this.getKeyName(key, 'client');
         const fullKey = (nameKeySup ? (nameKeySup + "."): '') + clientKey;
 
         const convertItem = this._convertKeyType?.(clientKey, 'client') || this._convertTable[clientKey];
@@ -733,7 +786,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
     //有强制应用转换器字段没有被调用，现在以空值去调用他们的转换器
     for (const key of forceApplyProps) {
-      const clientKey = this._nameMapperServer[key] || key;
+      const clientKey = this.getKeyName(key, 'client');
       const fullKey = (nameKeySup ? (nameKeySup + "."): '') + clientKey;
 
       const convertItem = this._convertKeyType?.(key, 'server') || this._convertTable[key];
@@ -760,7 +813,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
 
     //将本地字段映射到服务器字段
     for (const key in data) {
-      const serverKey = this._nameMapperClient[key] || key;
+      const serverKey = this.getKeyName(key, 'server');
       if (serverKey === key)
         continue;
 

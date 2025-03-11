@@ -1,3 +1,5 @@
+import { NameMapperCase } from "./DataModel";
+
 const tag = '[js-request-transform] ';
 
 export type KeyValue = Record<string, unknown>;
@@ -218,5 +220,26 @@ export const DataStringUtils = {
     }
     return strNum;
   },
+  /**
+   * 将字符串转为指定的命名方式。
+   * @param type 命名方式
+   * @param str 字符串
+   */
+  covertStringToCase(type: NameMapperCase, str: string) {
+    function firstToCase(s: string, upper: boolean = false) {
+      return (upper? s.charAt(0).toUpperCase() : s.charAt(0).toLowerCase()) + s.substring(1);
+    }
+    switch (type) {
+      case 'Camel':
+        return firstToCase(str.replace(/[-_][A-Za-z]/g, (match) => match.charAt(1).toUpperCase()));
+      case 'Pascal':
+        return firstToCase(str.replace(/[-_][A-Za-z]/g, (match) => match.charAt(1).toUpperCase()), true);
+      case 'Snake':
+        return firstToCase(str).replace(/([A-Z][a-z])/g, (match) => `_${match.toLowerCase()}`).replace(/\-/g, '_').split('_').filter(k => k).join('_');
+      case 'Midline':
+        return firstToCase(str).replace(/([A-Z][a-z])/g, (match) => `_${match.toLowerCase()}`).replace(/\_/g, '-').split('-').filter(k => k).join('-');
+    }
+    return str;
+  }
 }
 
