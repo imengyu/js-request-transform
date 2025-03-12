@@ -10,6 +10,7 @@
  */
 
 import { CONVERTER_ADD_DEFAULT, ConverterDataDirection, ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
+import { transformArrayDataModel } from "./DataTransform";
 import { DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn, throwError, throwOrWarnError } from "./DataUtils";
 
 export type DataConvertCustomFn = (
@@ -223,7 +224,8 @@ export type FastTemplateDataModelDefine = {
   nameMapperServer ?: { [index: string]: string },
   nameMapperClient ?: { [index: string]: string },
 };
-export type ChildDataModel = (new () => DataModel)|FastTemplateDataModelDefine|string;
+export type NewDataModel = (new () => DataModel);
+export type ChildDataModel = NewDataModel|FastTemplateDataModelDefine|string;
 export type NameMapperCase = 'Camel'|'Pascal'|'Snake'|'Midline';
 
 export interface DataModelConvertOptions {
@@ -257,7 +259,7 @@ export interface DataModelConvertOptions {
  * 该类提供了双向的数据转换。
  * 请继承此类定义自己的数据模型并设置转换相关设置。
  */
-export class DataModel<T extends DataModel = any> implements KeyValue {
+export class DataModel<T extends DataModel = any, C extends DataModel = any> implements KeyValue {
 
   //对象配置
   //=========================================
@@ -265,7 +267,8 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
   //索引未定义的类型时，推断为 unknow
   [index: string]: unknown;
 
-  private _classCreator: (new() => T)|undefined;
+  private _classCreator: NewDataModel|undefined;
+  private _arrayClassCreator: NewDataModel|FastTemplateDataModelDefine|undefined;
   private _classDebugName = '';
   _classPrevDebugKey = '';
 
@@ -415,7 +418,13 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     toServer: [],
     toClient: [],
   };
+  /**
+   * 设置是否可以是数组。
+   * @default false
+   */
+  public _canBeArray = false;
 
+  public _array : (C[])|null = null;
   public _lastServerSideData : KeyValue|null = null;
   public _serverNameMaperCase : NameMapperCase|null = null;
   public _clientNameMaperCase : NameMapperCase|null = null;
@@ -469,6 +478,73 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
   //获取数据方法
   //=========================================
 
+
+  /**
+   * 设置当前模型是否可以接收数组。数组类型仅用于接收服务端。
+   * @param c 数组元素的子类型
+   */
+  public setArrayType(c: NewDataModel|FastTemplateDataModelDefine|null) {
+    if (c) {
+      this._canBeArray = true;
+      this._arrayClassCreator = c;
+    } else {
+      this._canBeArray = false;
+      this._arrayClassCreator = undefined;
+    }
+  }
+  /**
+   * 获取当前模型内容是否被填充数组。
+   * @returns 
+   */
+  public isArray() {
+    return this._array != null;
+  }
+  /**
+   * 获取当前模型的数组内容长度。
+   * @returns
+   */
+  public getArrayLength() {
+    return this._array?.length || 0;
+  }
+  /**
+   * 获取当前模型的数组内容。
+   * @param index 数组索引
+   * @returns
+   */
+  public getArrayItem(index: number) {
+    return this._array?.[index];
+  }
+  /**
+   * 获取当前模型的数组内容。
+   * @returns
+   */
+  public getArray() {
+    return this._array;
+  }
+  /**
+   * 设置当前模型的数组内容。
+   * @returns
+   */
+  public setArray(arr: C[]) {
+    this._array = arr;
+  }
+  /**
+   * 向当前模型的数组内容中追加。
+   * @returns
+   */
+  public arrayAdd(n: C) {
+    if (!this._array)
+      this._array = [];
+    this._array?.push(n);
+  }
+  /**
+   * 向当前模型的数组内容中删除。
+   * @returns
+   */
+  public arrayDelete(index: number) {
+    this._array?.splice(index, 1);
+  }
+
   /**
    * 获取上次创建的服务端原始数据
    * @returns
@@ -515,6 +591,8 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
     return this.getLastServerSideData();
   }
 
+
+
   //转换入口
   //=========================================
 
@@ -555,6 +633,7 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
    */
   public fromServerSide(data : KeyValue|undefined|null, userOptions?: DataModelConvertOptions|undefined, nameKeySup?: string) : DataModel {
     this._lastServerSideData = data || null;
+    this._array = null;
     if (typeof data === 'string') {
       try {
         data = JSON.parse(data);
@@ -570,14 +649,17 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
       return this;
 
     } else if (data instanceof Array) {
-
-      //数组数据，不能转换
-      if (this._convertPolicy.startsWith('warning'))
-        logWarn(`Try to convert a array to ${this._classDebugName}, a empty object was returned. If you want to conver a array to DataModel, please use transformArrayDataModel function.`);
-      else
-        throwError(`Try to convert a array to ${this._classDebugName}.`);
+      if (this._canBeArray && this._arrayClassCreator) {
+        //允许转换数组
+        this._array = transformArrayDataModel(this._arrayClassCreator, data, '', this._convertPolicy.startsWith('strict'))
+      } else {
+        //数组数据，不能转换
+        if (this._convertPolicy.startsWith('warning'))
+          logWarn(`Try to convert a array to ${this._classDebugName}, a empty object was returned. If you want to conver a array to DataModel, please use transformArrayDataModel function.`);
+        else
+          throwError(`Try to convert a array to ${this._classDebugName}.`);
+      }
       return this;
-
     } else {
       const options : ConvertItemOptions = {
         policy: this._convertPolicy,
@@ -697,6 +779,18 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
    * @returns 返回服务端格式数据
    */
   public toServerSide(userOptions?: DataModelConvertOptions|undefined, nameKeySup?: string) : KeyValue {
+
+    if (this._canBeArray && this.isArray()) {
+      //数组类型特殊处理
+      const result : KeyValue[] = [];
+      for (const item of this._array!) 
+        if (item instanceof DataModel)
+          result.push(item.toServerSide(userOptions, nameKeySup));
+        else
+          result.push(item);
+      return result as any;
+    }
+
     const data = {} as KeyValue;
     const options : ConvertItemOptions = {
       policy: this._convertPolicy,
@@ -943,5 +1037,9 @@ export class DataModel<T extends DataModel = any> implements KeyValue {
    */
   public get<U>(keyName: string, defaultValue?: U) : U|undefined  {
     return DataObjectUtils.accessObjectByString(this, keyName, false) as U || defaultValue;
+  }
+
+  public toString() {
+    return this.isArray() ? `Array ${this._classDebugName} (${this.getArrayLength()})` : `DataModel ${this._classDebugName}`;
   }
 }

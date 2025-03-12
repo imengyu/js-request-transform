@@ -13,7 +13,7 @@
  */
 
 import { ConvertPolicy, DataConverter, FastTemplateDataModel } from "./DataConverter";
-import { ChildDataModel, DataModel, DataModelConvertOptions, FastTemplateDataModelDefine } from "./DataModel";
+import { ChildDataModel, DataModel, DataModelConvertOptions, FastTemplateDataModelDefine, NewDataModel } from "./DataModel";
 import { KeyValue } from "./DataUtils";
 
 /**
@@ -50,7 +50,7 @@ import { KeyValue } from "./DataUtils";
  * @returns 数据模型实例
  */
 export function transformDataModel<T extends DataModel>(
-  c: (new () => T)|FastTemplateDataModelDefine, 
+  c: NewDataModel|FastTemplateDataModelDefine, 
   source: KeyValue,
   userOptions?: DataModelConvertOptions | undefined
 ) : T {
@@ -98,7 +98,7 @@ export function transformWithConverter(
  * @returns 数据模型数组
  */
 export function transformArrayDataModel<T extends DataModel>(
-  c: (new () => T)|FastTemplateDataModelDefine, 
+  c: NewDataModel|FastTemplateDataModelDefine, 
   source: KeyValue[], 
   sourceKeyName: string, 
   throwErrorIfFail = true,
