@@ -10,7 +10,7 @@
  */
 
 import { CONVERTER_ADD_DEFAULT, ConverterDataDirection, ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
-import { DATA_MODEL_ERROR_CANOT_CLONE, DATA_MODEL_ERROR_OVERLAP_TABLE, DATA_MODEL_ERROR_TRY_CONVERT_BAD_TYPE } from "./DataErrorFormat";
+import { DATA_MODEL_ERROR_CANOT_CLONE, DATA_MODEL_ERROR_OVERLAP_TABLE, DATA_MODEL_ERROR_REQUIRED_KEY_MISSING, DATA_MODEL_ERROR_TRY_CONVERT_BAD_TYPE } from "./DataErrorFormat";
 import { transformArrayDataModel } from "./DataTransform";
 import { DataErrorFormatUtils, DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn, throwError, throwOrWarnError } from "./DataUtils";
 
@@ -720,7 +720,7 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
             //判空
             const clientValue = data[serverKey];
             if (typeof clientValue === 'undefined' || clientValue === null) {
-              const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_TRY_CONVERT_BAD_TYPE, {
+              const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_REQUIRED_KEY_MISSING, {
                 sourceKey: key,
                 source: 'fromServerSide',
                 serverKey: serverKey,
@@ -850,7 +850,7 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
         ) {
           const clientValue = this[key];
           if (typeof clientValue === 'undefined' || clientValue === null) {
-            const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_TRY_CONVERT_BAD_TYPE, {
+            const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_REQUIRED_KEY_MISSING, {
               sourceKey: key,
               source: 'toServerSide',
               serverKey: '',
