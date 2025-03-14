@@ -11,6 +11,21 @@ class TestConvertToCaseInModel extends DataModel {
   modelId = 0;
   mainBodyColumnId = 0;
 }
+class TestConvertToCaseInModelRequiredCheck extends DataModel {
+  constructor() {
+    super();
+    this.setNameMapperCase('Camel', 'Snake');
+    this._convertTable = {
+      mainBodyColumnId: {
+        clientSide: 'number', serverSide: 'number', clientSideRequired: true, serverSideRequired: true
+      }
+    }
+  }
+
+  mainBodyId = 0;
+  modelId = 0;
+  mainBodyColumnId = 0;
+}
 
 test('TestConvertToCaseInModelToServer', () => {
   const model = new TestConvertToCaseInModel();
@@ -40,4 +55,40 @@ test('TestConvertToCaseInModelToClient', () => {
   expect(model.main_body_column_id).toBe(undefined);
   expect(model.main_body_id).toBe(undefined);
   expect(model.model_id).toBe(undefined);
+}) 
+
+
+
+test('TestConvertToCaseInModelRequiredCheck', () => {
+
+  expect(new TestConvertToCaseInModelRequiredCheck().fromServerSide(JSON.parse(`{
+    "main_body_column_id": 2
+  }`)).mainBodyColumnId).toBe(2);
+  expect(() => {
+    new TestConvertToCaseInModelRequiredCheck().fromServerSide(JSON.parse(`{
+      "mainBodyColumnId": 0
+    }`));
+  }).toThrow();
+  
+  expect(() => {
+    const model = new TestConvertToCaseInModelRequiredCheck();
+    model.mainBodyId = 1;
+    model.mainBodyColumnId = undefined;
+    model.toServerSide();
+  }).toThrow();
+
+  expect(() => {
+    const model = new TestConvertToCaseInModelRequiredCheck();
+    model.main_body_column_id = 1;
+    model.mainBodyColumnId = undefined;
+    model.toServerSide();
+  }).toThrow();
+
+  expect(() => {
+    const model = new TestConvertToCaseInModelRequiredCheck();
+    model.mainBodyColumnId = 1;
+    model.toServerSide();
+    return undefined;
+  });
+
 }) 

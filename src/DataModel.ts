@@ -10,8 +10,9 @@
  */
 
 import { CONVERTER_ADD_DEFAULT, ConverterDataDirection, ConvertItemOptions, ConvertPolicy, DataConverter } from "./DataConverter";
+import { DATA_MODEL_ERROR_CANOT_CLONE, DATA_MODEL_ERROR_OVERLAP_TABLE, DATA_MODEL_ERROR_TRY_CONVERT_BAD_TYPE } from "./DataErrorFormat";
 import { transformArrayDataModel } from "./DataTransform";
-import { DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn, throwError, throwOrWarnError } from "./DataUtils";
+import { DataErrorFormatUtils, DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn, throwError, throwOrWarnError } from "./DataUtils";
 
 export type DataConvertCustomFn = (
   /**
@@ -227,6 +228,7 @@ export type FastTemplateDataModelDefine = {
 export type NewDataModel = (new () => DataModel);
 export type ChildDataModel = NewDataModel|FastTemplateDataModelDefine|string;
 export type NameMapperCase = 'Camel'|'Pascal'|'Snake'|'Midline';
+
 
 export interface DataModelConvertOptions {
   /**
@@ -544,6 +546,19 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
   public arrayDelete(index: number) {
     this._array?.splice(index, 1);
   }
+  /**
+   * 设置当前模型的属性值，key 为客户端定义名称。
+   */
+  public setSelfValues(values: Record<keyof T, any>) {
+    for (const key in values) {
+      if (Object.prototype.hasOwnProperty.call(values, key)) {
+        const element = values[key];
+        if (element)
+          this[key] = element;
+      }
+    }
+    return this;
+  }
 
   /**
    * 获取上次创建的服务端原始数据
@@ -640,12 +655,15 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
       } catch { /*Ignore error*/ }
     }  
     if (typeof data === 'undefined' || data === null || typeof data === 'boolean' || typeof data === 'string' || typeof data === 'number') {
-
+      const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_TRY_CONVERT_BAD_TYPE, {
+        sourceType: data === null ? 'null' : typeof data,
+        targetType: this._classDebugName,
+      });
       //null与undefined，基本类型数据，不能转换
       if (this._convertPolicy.startsWith('warning'))
-        logWarn(`Try to convert a ${data === null ? 'null' : typeof data} to ${this._classDebugName}, a empty object was returned.`);
+        logWarn(`${error} (An empty object was returned.)`);
       else
-        throwError(`Try to convert a ${data === null ? 'null' : typeof data} to ${this._classDebugName}.`);
+        throwError(error);
       return this;
 
     } else if (data instanceof Array) {
@@ -653,11 +671,15 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
         //允许转换数组
         this._array = transformArrayDataModel(this._arrayClassCreator, data, '', this._convertPolicy.startsWith('strict'))
       } else {
+        const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_TRY_CONVERT_BAD_TYPE, {
+          sourceType: 'array',
+          targetType: this._classDebugName,
+        });
         //数组数据，不能转换
         if (this._convertPolicy.startsWith('warning'))
-          logWarn(`Try to convert a array to ${this._classDebugName}, a empty object was returned. If you want to conver a array to DataModel, please use transformArrayDataModel function.`);
+          logWarn(`${error} (An empty object was returned. If you want to conver a array to DataModel, please use transformArrayDataModel function.)`);
         else
-          throwError(`Try to convert a array to ${this._classDebugName}.`);
+          throwError(error);
       }
       return this;
     } else {
@@ -688,7 +710,7 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
             && convertItem.clientSide !== 'null'
           ) {
             //转换映射字段名称
-            let serverKey = key;
+            let serverKey = this.getKeyName(key, 'server')
             for (const serverMapperKey in this._nameMapperServer) {
               if (this._nameMapperServer[serverMapperKey] === key) {
                 serverKey = serverMapperKey;
@@ -697,8 +719,15 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
             }
             //判空
             const clientValue = data[serverKey];
-            if (typeof clientValue === 'undefined' || clientValue === null)
-              throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Source: DataModel fromServerSide Check; Obj:${this._classDebugName + ' ' + this._classPrevDebugKey} ServerKey:${serverKey} ConvertTableKey:${key}`);
+            if (typeof clientValue === 'undefined' || clientValue === null) {
+              const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_TRY_CONVERT_BAD_TYPE, {
+                sourceKey: key,
+                source: 'fromServerSide',
+                serverKey: serverKey,
+                objectName: this._classDebugName + ' ' + this._classPrevDebugKey,
+              });
+              throw new Error(error);
+            }
           }
         }
       }
@@ -820,8 +849,15 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
           && convertItem.serverSide !== 'null'
         ) {
           const clientValue = this[key];
-          if (typeof clientValue === 'undefined' || clientValue === null)
-            throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Source: DataModel toServerSide Check; Obj:${this._classDebugName + ' ' + this._classPrevDebugKey} ConvertTableKey:${key}`);
+          if (typeof clientValue === 'undefined' || clientValue === null) {
+            const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_TRY_CONVERT_BAD_TYPE, {
+              sourceKey: key,
+              source: 'toServerSide',
+              serverKey: '',
+              objectName: this._classDebugName + ' ' + this._classPrevDebugKey,
+            });
+            throw new Error(error);
+          }
         }
       }
     }
@@ -913,8 +949,8 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
 
       //有重复的数据警告
       if (data[serverKey] !== undefined) {
-        throwOrWarnError(`Detected field overlap in the mapper table, raw field name ${key}, to server field name ${serverKey}, ` +
-          `which may be due to duplicate fields in your _nameMapperClient table!`, isStrictMode);
+        const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_OVERLAP_TABLE, { key, serverKey });
+        throwOrWarnError(error, isStrictMode);
       }
 
       data[serverKey] = data[key];
@@ -947,7 +983,7 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
     cloneConfig?: boolean,
   }) : T {
     if (!this._classCreator)
-      throw new Error(`This DataModel ${this._classDebugName} can not be clone.`);
+      throw new Error(DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_CANOT_CLONE, { objectName: this._classDebugName, }));
 
     const deepClone = config?.deepClone ?? false;
     const cloneFuction = config?.cloneFuction ?? false;

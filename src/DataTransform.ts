@@ -13,8 +13,9 @@
  */
 
 import { ConvertPolicy, DataConverter, FastTemplateDataModel } from "./DataConverter";
+import { DATA_MODEL_ERROR_ARRAY_IS_NOT_ARRAY, DATA_MODEL_ERROR_ARRAY_REQUIRED_KEY_MISSING } from "./DataErrorFormat";
 import { ChildDataModel, DataModel, DataModelConvertOptions, FastTemplateDataModelDefine, NewDataModel } from "./DataModel";
-import { KeyValue } from "./DataUtils";
+import { DataErrorFormatUtils, KeyValue } from "./DataUtils";
 
 /**
  * 用于从服务端转为客户端数据，将JSON数据转为数据模型，
@@ -107,13 +108,13 @@ export function transformArrayDataModel<T extends DataModel>(
   const array = [] as T[];
   if (typeof source === 'undefined') {
     if (throwErrorIfFail)
-      throw new Error(`transformArrayDataModel fail: The required field ${sourceKeyName} is not provide.`);
+      throw new Error(DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_ARRAY_REQUIRED_KEY_MISSING, { sourceKey: sourceKeyName }));
     else
       return array;
   }
   if (!(source instanceof Array)) {
     if (throwErrorIfFail)
-      throw new Error(`transformArrayDataModel fail: The required field ${sourceKeyName} is not a array.`);
+      throw new Error(DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_ARRAY_IS_NOT_ARRAY, { sourceKey: sourceKeyName }));
     else
       return array;
   }

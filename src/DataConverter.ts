@@ -2,7 +2,8 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { ChildDataModel, ConvertTable, DataConvertItem, DataModel, DataModelConvertOptions, FastTemplateDataModelDefine } from './DataModel';
-import { DataDateUtils, DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn } from './DataUtils';
+import { DataDateUtils, DataErrorFormatUtils, DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn } from './DataUtils';
+import { DATA_MODEL_ERROR_NO_CONVERTER, DATA_MODEL_ERROR_PRINT_SOURCE, DATA_MODEL_ERROR_REQUIRED_KEY_NULL } from './DataErrorFormat';
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -752,7 +753,10 @@ function convertInnernType(
 ) : unknown {
 
   function printSource() {
-    return `Source: ${debugName}:${debugKey}.`
+    return DataErrorFormatUtils.formatError(
+      DATA_MODEL_ERROR_PRINT_SOURCE, 
+      { objectName: `${debugName}:${debugKey}.` }
+    );
   }
 
   const warn = options.policy.startsWith('warning');
@@ -760,25 +764,27 @@ function convertInnernType(
 
   //判空
   if (strict && !type)
-    throw new Error(`Convert ${key} faild: Must privide ${options.direction}Side. ${printSource()}`);
+    throw new Error(`${DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_NO_CONVERTER, { key, direction: options.direction })} ${printSource()}`);
 
   //获取转换器
   let array = type ? converterArray.get(type) : null;
   if (!array || array.length === 0) {
+    const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_NO_CONVERTER, { key, type });
     if (strict)
-      throw new Error(`Convert ${key} faild: No converter was found for type ${type}. ${printSource()} `);
+      throw new Error(`${error} ${printSource()} `);
     if (warn && type !== '') 
-      logWarn(`Convert ${key} faild: No converter was found for type ${type}, raw data returned. ${printSource()}`);
+      logWarn(`${error} (Raw data returned.) ${printSource()}`);
     return source;
   }
 
   //判空
   if (required && array[0].targetType !== CONVERTER_ADD_DEFAULT) {
     if (typeof source === 'undefined' || source === null) {
+      const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_REQUIRED_KEY_NULL, { key });
       if (strict)
-        throw new Error(`Convert ${key} faild: Key ${key} is required but not provide or null. ${printSource()}`);
+        throw new Error(`${error} ${printSource()}`);
       if (warn)
-        logWarn(`Convert ${key} warn: Key ${key} is required but not provide or null. ${printSource()}`);
+        logWarn(`${error} ${printSource()}`);
     }
   }
 
@@ -790,10 +796,11 @@ function convertInnernType(
     if (required && convert.preRequireCheckd) {
       const error = convert.preRequireCheckd(source);
       if (error) {
+        const error = DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_REQUIRED_KEY_NULL, { key });
         if (strict)
-          throw new Error(`Convert ${key} faild: Key ${key} is required but not provide. Error: ${error}. ${printSource()}`);
+          throw new Error(`${error} Error: ${error}. ${printSource()}`);
         if (warn)
-          logWarn(`Convert ${key} warn: Key ${key} is required but not provide. Error: ${error}. ${printSource()}`);
+          logWarn(`${error} Error: ${error}. ${printSource()}`);
       }
     }
 

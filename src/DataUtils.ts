@@ -1,3 +1,4 @@
+import { defaultDataErrorFormatHandler } from "./DataErrorFormat";
 import { NameMapperCase } from "./DataModel";
 
 const tag = '[js-request-transform] ';
@@ -18,6 +19,21 @@ export function throwError(message: string) {
 }
 export function throwOrWarnError(message: string, strict: boolean) {
   strict ? throwError(message) : logWarn(message);
+}
+
+
+type DataErrorFormatHandler = (error: number, data: Record<string, string>) => string;
+
+export const DataErrorFormatUtils = {
+  handler: null as DataErrorFormatHandler | null,
+  formatError(error: number, data: Record<string, string>) {
+    if (this.handler) 
+      return this.handler(error, data);
+    return defaultDataErrorFormatHandler(error, data);
+  },
+  setFormatHandler(handler: DataErrorFormatHandler) {
+    this.handler = handler;
+  },
 }
 
 /**
