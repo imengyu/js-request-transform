@@ -586,7 +586,11 @@ registerConverter({
   key: 'DefaultDate',
   converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
     if (typeof source === 'string' || typeof source === 'number') {
-      const date = new Date(source);
+      let date;
+      if (options.praseDateWithDayjs && typeof source === 'string')
+        date = parseDayjs(source, dateFormat || options.defaultDateFormat).toDate();
+      else
+        date = new Date(source);
       if (DataDateUtils.isVaildDate(date))
         return makeSuccessConvertResult(date);
       else
@@ -728,6 +732,11 @@ export interface ConvertItemOptions {
    * 当前模型的默认日期格式
    */
   defaultDateFormat: string,
+  /**
+   * 是否使用dayjs解析日期
+   * @default false
+   */
+  praseDateWithDayjs?: boolean,
   /**
    * 当前模型的转换策略
    */
