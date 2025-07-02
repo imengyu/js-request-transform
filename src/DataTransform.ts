@@ -15,7 +15,7 @@
 import { ConvertPolicy, DataConverter, FastTemplateDataModel } from "./DataConverter";
 import { DATA_MODEL_ERROR_ARRAY_IS_NOT_ARRAY, DATA_MODEL_ERROR_ARRAY_REQUIRED_KEY_MISSING } from "./DataErrorFormat";
 import { ChildDataModel, DataModel, DataModelConvertOptions, FastTemplateDataModelDefine, NewDataModel } from "./DataModel";
-import { DataErrorFormatUtils, KeyValue } from "./DataUtils";
+import { DataErrorFormatUtils, DataObjectUtils, KeyValue } from "./DataUtils";
 
 /**
  * 用于从服务端转为客户端数据，将JSON数据转为数据模型，
@@ -100,7 +100,7 @@ export function transformWithConverter(
  */
 export function transformArrayDataModel<T extends DataModel>(
   c: NewDataModel|FastTemplateDataModelDefine, 
-  source: KeyValue[], 
+  source: KeyValue[]|Iterable<KeyValue>|ArrayLike<KeyValue>, 
   sourceKeyName: string, 
   throwErrorIfFail = true,
   userOptions?: DataModelConvertOptions | undefined
@@ -112,6 +112,8 @@ export function transformArrayDataModel<T extends DataModel>(
     else
       return array;
   }
+  if (!(source instanceof Array) && DataObjectUtils.isIterable(source))
+    source = Array.from(source);
   if (!(source instanceof Array)) {
     if (throwErrorIfFail)
       throw new Error(DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_ARRAY_IS_NOT_ARRAY, { sourceKey: sourceKeyName }));

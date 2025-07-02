@@ -41,6 +41,14 @@ export const DataErrorFormatUtils = {
  */
 export const DataObjectUtils = {
   /**
+   * 判断是否是可迭代对象
+   * @param obj 要判断的对象
+   * @returns 是否是可迭代对象
+   */
+  isIterable(obj: any) {
+    return obj != null && typeof obj[Symbol.iterator] === "function";
+  },
+  /**
    * 快速克隆一个对象
    * @param obj 要克隆的对象
    * @returns 新对象
@@ -136,6 +144,9 @@ export const DataDateUtils = {
    * @param formatStr 日期格式化模板，不填写默认是 `'YYYY-MM-dd HH:ii:ss'`
    */
   formatDate(date: Date, formatStr?: string) {
+    if (!this.isVaildDate(date))
+      return 'invalid date';
+
     const pad = DataStringUtils.pad;
     let str = formatStr ? formatStr : "YYYY-MM-dd HH:ii:ss";
 
