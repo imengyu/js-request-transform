@@ -985,6 +985,8 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
     function handleItem(d: any) : any {
       if (customObjectFn)
         return customObjectFn(d);
+      if (typeof d === 'function')
+        return undefined;
       if (d instanceof Array) 
         return d.map(a => handleItem(a));
       if (d instanceof DataModel)
