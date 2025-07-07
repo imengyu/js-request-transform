@@ -683,11 +683,16 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
       }
       return this;
     } else {
+      const configCustom = DataConverter.getConvertItemCustomOptions();
       const options : ConvertItemOptions = {
         policy: this._convertPolicy,
         direction: 'client',
         defaultDateFormat: this._defaultDateFormat,
-        userOptions,
+        ...configCustom,
+        userOptions: {
+          ...configCustom.userOptions,
+          ...userOptions,
+        },
       };
       //调用预处理回调
       data = this._beforeSolveServer?.(data, this) || data;
@@ -821,11 +826,16 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
     }
 
     const data = {} as KeyValue;
+    const configCustom = DataConverter.getConvertItemCustomOptions();
     const options : ConvertItemOptions = {
       policy: this._convertPolicy,
       direction: 'server',
       defaultDateFormat: this._defaultDateFormat,
-      userOptions,
+      ...configCustom,
+      userOptions: {
+        ...configCustom.userOptions,
+        ...userOptions,
+      },
     };
 
     //调用预处理回调
@@ -957,6 +967,41 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
       data[key] = undefined;
     }
 
+    return data;
+  }
+
+  /**
+   * 转化为纯JSON，用于SSR传输，去除 _ 开头的字段，去除函数。
+   */
+  public toJSON(options?: {
+    /**
+     * 对于对象类型，可以进行自定义处理
+     */
+    customObjectFn?: (src: any) => any,
+  }) : Record<keyof this, any> {
+    const { customObjectFn } = options || {};
+    const data = {} as Record<keyof this, any>;
+
+    function handleItem(d: any) : any {
+      if (customObjectFn)
+        return customObjectFn(d);
+      if (d instanceof Array) 
+        return d.map(a => handleItem(a));
+      if (d instanceof DataModel)
+        return d.toJSON();
+      return d;
+    }
+
+    for (const key in this) {
+      if (key.startsWith('_'))
+        continue;
+      let d = this[key];
+      if (typeof d === 'function')
+        continue;
+      if (typeof d === 'object')
+        d = handleItem(d);
+      data[key] = d;
+    }
     return data;
   }
 

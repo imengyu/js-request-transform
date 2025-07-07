@@ -124,7 +124,10 @@ export class FastTemplateDataModel extends DataModel {
   }
 }
 
+type ConvertItemCustomOptions = Partial<Omit<ConvertItemOptions, 'direction'>>;
+
 let setDayJsTimeZone = '';
+let convertItemCustomOptions : ConvertItemCustomOptions = {};
 
 /**
  * 设置 dayjs 默认时区
@@ -134,6 +137,16 @@ let setDayJsTimeZone = '';
 function configDayJsTimeZone(timezone: string) {
   setDayJsTimeZone = timezone;
   dayjs.tz.setDefault(timezone);
+}
+/**
+ * 配置转换项自定义参数
+ * @param options 
+ */
+function configConvertItemCustomOptions(options: ConvertItemCustomOptions) {
+  convertItemCustomOptions = options;
+}
+function getConvertItemCustomOptions() {
+  return convertItemCustomOptions
 }
 function parseDayjs(source: string, format?: string) {
   const dayJs = setDayJsTimeZone ?
@@ -894,6 +907,8 @@ export const DataConverter = {
   registerConverter,
   unregisterConverter,
   configDayJsTimeZone,
+  configConvertItemCustomOptions,
+  getConvertItemCustomOptions,
   convertDataItem,
   convertInnernType,
   convertArrayOrObjectItemSolver,
