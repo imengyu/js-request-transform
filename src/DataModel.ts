@@ -549,11 +549,11 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
   /**
    * 设置当前模型的属性值，key 为客户端定义名称。
    */
-  public setSelfValues(values: Record<keyof T, any>) {
+  public setSelfValues<I = T>(values: Record<keyof I, any>) {
     for (const key in values) {
       if (Object.prototype.hasOwnProperty.call(values, key)) {
         const element = values[key];
-        if (element)
+        if (element !== undefined)
           this[key] = element;
       }
     }
