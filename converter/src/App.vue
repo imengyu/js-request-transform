@@ -59,6 +59,19 @@ const clipboard = Clipboard()
 const source = ref('{\n\n}')
 const target = ref('');
 const caseType = ref('Default');
+
+const preferNumberKeys = [
+  'id', 'count', 'amount', 'price', 'total', 'number', 'size', 'length', 'width', 'height', 'weight', 'volume',
+  'quantity', 'price', 'total', 'size', 'length', 'width', 'height', 'weight', 'volume'
+];
+const preferStringKeys = [
+  'name', 'title', 'description', 'content', 'text', 'email', 'phone', 'address', 'city', 'state', 'country', 'intro',
+  'zip', 'username', 'password', 'token', 'secret', 'key', 'image', 'keyword', 'video', 'audio',
+];
+const preferBooleanKeys = [
+  'is', 'has', 'visible', 'enabled', 'active', 'checked', 'selected', 'required', 'valid', 'invalid', 'visible', 'hidden', 
+  'disabled', 'enabled', 'active', 'checked', 'selected', 'required', 'valid', 'invalid'
+];
    
 const dateRegrex = [
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/,
@@ -66,6 +79,9 @@ const dateRegrex = [
   /^\d{4}-\d{2}-\d{2}$/,
   /^\d{4}-\d{2}-\d{2}\d{2}:\d{2}:\d{2}$/,
 ];
+function isNumberString(str: string) {
+  return /^\d+$/.test(str);
+}
 function matchDateRegrex(dateStr: string) {
   for (const regrex of dateRegrex) {
     if (regrex.test(dateStr))
@@ -73,6 +89,42 @@ function matchDateRegrex(dateStr: string) {
   }
   return false;
 }
+function matchStringArr(str: string, arr: string[]) {
+  if (str.includes('_')) {
+    const arr = str.split('_');
+    for (const item of arr) {
+      if (matchStringArr(item, arr))
+        return true;
+    }
+  }
+  for (const item of arr) {
+    if (str.includes(item))
+      return true;
+  }
+  return false;
+}
+function matchTypeFromKeyName(keyLowerCase: string) {
+  if (matchStringArr(keyLowerCase, preferStringKeys))
+    return 'string';
+  if (matchStringArr(keyLowerCase, preferNumberKeys))
+    return 'number';
+  if (matchStringArr(keyLowerCase, preferBooleanKeys))
+    return 'boolean';
+  return '';
+}
+function matchChildType(arr: unknown[]) {
+  if (arr.length > 0) {
+    if (typeof arr[0] === 'string')
+      return 'string';
+    else if (typeof arr[0] === 'number')
+      return 'number';
+    else if (typeof arr[0] === 'boolean')
+      return 'boolean';
+  }
+  return '';
+}
+
+type PreferTypes = 'string'|'number'|'boolean'|'object'|'array'|'';
 
 function handleConvert() {
   try {
@@ -84,38 +136,77 @@ function handleConvert() {
 
         let convertTableSimpleType = '';
         let convertTableSimpleServerType = '';
+        let preferUseType : PreferTypes = '';
+        let preferUseTypeChild : PreferTypes = '';
+        let resultIsNull = false;
         const element = jsonObj[key];
+        const keyLowerCase = key.toLowerCase();
         const keyResult = caseType.value === 'Default'? key : DataStringUtils.covertStringToCase(caseType.value as NameMapperCase, key);
-        if (typeof element === 'string') {
+
+        if (element === null) {
+          preferUseType = matchTypeFromKeyName(keyLowerCase);
+          resultIsNull = true;
+        } else if (typeof element === 'string') {
+
+          if (element && element.startsWith('[') && element.endsWith(']')) {
+            preferUseType = 'array';
+            const arr = JSON.parse(element);
+            preferUseTypeChild = matchChildType(arr) || matchTypeFromKeyName(keyLowerCase);
+          } else if (isNumberString(element)) {
+            preferUseType = 'number';
+            preferUseTypeChild = 'number';
+          } else {
+            preferUseType = 'string';
+            preferUseTypeChild = 'string';
+          }
+        } else if (typeof element === 'number') {
+          preferUseType = 'number';
+          preferUseTypeChild = 'number';
+        } else if (typeof element === 'boolean') {
+          preferUseType = 'boolean';
+          preferUseTypeChild = 'boolean';
+        } else if (typeof element === 'object') {
+          preferUseType = 'object';
+          preferUseTypeChild = 'object';
+
+          if (element instanceof Array) {
+            preferUseType = 'array';
+            preferUseTypeChild = matchChildType(element);
+          }
+        }
+
+
+        
+        if (preferUseType === 'string') {
           if (element && matchDateRegrex(element)) {
             resultArr.push(`${keyResult} = new Date();`)
             convertTableSimpleType = 'Date';
             convertTableSimpleServerType = 'Date';
           } else {
-            resultArr.push(`${keyResult} = '';`)
+            resultArr.push(`${keyResult} = '' as string${resultIsNull ? '|null' : ''};`)
             convertTableSimpleType = 'string';
             convertTableSimpleServerType = 'string';
           }
-        } else if (typeof element === 'number') {
-          resultArr.push(`${keyResult} = null as number|null;`)
+        } else if (preferUseType === 'number') {
+          resultArr.push(`${keyResult} = ${resultIsNull ? 'null' : '0'} as number${resultIsNull ? '|null' : ''};`)
           convertTableSimpleType = 'number';
           convertTableSimpleServerType = 'number';
-        } else if (typeof element === 'boolean') {
+        } else if (preferUseType === 'boolean') {
           resultArr.push(`${keyResult} = false;`)
           convertTableSimpleType = 'boolean';
           convertTableSimpleServerType = 'boolean';
-        } else if (typeof element === 'object') {
+        } else if (preferUseType === 'object' || preferUseType === 'array') {
 
-          if (element instanceof Array) {
+          if (preferUseType === 'array' || element instanceof Array) {
 
-            if (element.length === 0)
-              resultArr.push(`${keyResult} = [] as unknow[];`)
-            else if (typeof element[0] === 'string')
+            if (preferUseTypeChild === 'string')
               resultArr.push(`${keyResult} = [] as string[];`)
-            else if (typeof element[0] === 'number')
+            else if (preferUseTypeChild === 'number')
               resultArr.push(`${keyResult} = [] as number[];`)
-            else if (typeof element[0] === 'boolean')
+            else if (preferUseTypeChild === 'boolean')
               resultArr.push(`${keyResult} = [] as boolean[];`)
+            else
+              resultArr.push(`${keyResult} = [] as unknow[];`)
 
           } else {
             const convertArrTemp = [];
