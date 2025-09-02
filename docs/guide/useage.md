@@ -397,3 +397,7 @@ export class ShopProductDetail extends DataModel {
   level_ids = [] as number[];
 }
 ```
+
+## 转换工具
+
+这里有一个[转换工具](https://docs.imengyu.top/js-request-transform/converter)，你可以使用它通过json快速生成DataModel字段，方便前端使用。
