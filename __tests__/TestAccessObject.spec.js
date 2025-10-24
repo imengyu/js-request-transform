@@ -1,4 +1,4 @@
-const { DataObjectUtils } = require('../dist/DataUtils');
+const { DataObjectUtils } = require('../dist');
 
 test('TestAccessObject', () => {
   const sourceJson = {
