@@ -91,8 +91,8 @@
 
 DataConvertItem：
 
-|参数|说明|类型|默认值|
-|--|--|--|--|
+|参数|说明|类型|
+|--|--|--|
 |serverSide|指定当前key转为服务端的数据类型|string|
 |serverSideRequired|指定当前key是否是必填，逻辑如图同 _convertPolicy 设置为 `*-required` 时。|boolean|
 |serverSideDateFormat|当前key类型是dayjs时，自定义日期格式|string|
@@ -133,7 +133,7 @@ DataConvertItem：
 
 设置 dayjs 默认时区
 
-参考 https://dayjs.gitee.io/docs/zh-CN/plugin/timezone
+参考 [dayjs 时区插件](https://dayjs.gitee.io/docs/zh-CN/plugin/timezone)
 
 |参数|说明|类型|默认值|
 |--|--|--|--|
