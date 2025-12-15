@@ -398,6 +398,109 @@ export class ShopProductDetail extends DataModel {
 }
 ```
 
+## 实用函数
+
+### findOneProp - 在对象中根据条件查找属性值
+
+**函数签名：**
+```typescript
+export function findOneProp(source: Record<string, any>, matchConditions: FindOnePropCondition[], assertMessage?: string): any
+```
+
+**功能说明：**
+在一个对象中根据匹配条件查找一个属性值。可以根据不同的匹配类型来查找属性，支持以下匹配类型：
+- `match`：精确匹配属性名
+- `startWith`：匹配以指定字符串开头的属性名
+- `endWith`：匹配以指定字符串结尾的属性名
+- `contain`：匹配包含指定字符串的属性名
+- `selectOnlyOne`：如果只有一个属性，直接返回该属性值
+- `selectAtLestOne`：如果没有匹配到任何属性，返回第一个属性值
+
+**参数说明：**
+- `source`：源对象
+- `matchConditions`：匹配条件数组
+- `assertMessage`：可选，断言失败时的错误信息
+
+**使用示例：**
+```typescript
+// 精确匹配
+const result = findOneProp({ name: 'test' }, [{ type: 'match', name: 'name' }]); // 'test'
+
+// 匹配以指定字符串开头的属性
+const result = findOneProp({ user_name: 'test' }, [{ type: 'startWith', name: 'user' }]); // 'test'
+
+// 匹配以指定字符串结尾的属性
+const result = findOneProp({ name_id: '123' }, [{ type: 'endWith', name: 'id' }]); // '123'
+```
+
+### findOneBestArray - 递归查找最匹配的列表数组
+
+**函数签名：**
+```typescript
+export function findOneBestArray(source: Record<string, any>): any[]
+```
+
+**功能说明：**
+在一个对象中递归查找最可能的列表数组并返回。该函数会遍历所有属性值，并返回第一个匹配到的列表数组。数组的合理性判断标准是：数组中超过80%的元素具有相同的类型。
+
+**参数说明：**
+- `source`：源对象
+
+**使用示例：**
+```typescript
+const data = {
+  code: 200,
+  data: {
+    list: [{ id: 1, name: 'test1' }, { id: 2, name: 'test2' }],
+    total: 2
+  }
+};
+
+const result = findOneBestArray(data); // [{ id: 1, name: 'test1' }, { id: 2, name: 'test2' }]
+```
+
+### transformAnyToArray - 将任意类型转换为数组
+
+**函数签名：**
+```typescript
+export function transformAnyToArray(source: unknown, options?: { nestArray?: boolean }): any[]
+```
+
+**功能说明：**
+将任意类型的数据转换为数组类型，支持以下转换规则：
+- 如果源数据是数组类型，则直接返回源数据
+- 如果源数据是对象/Map类型，则返回对象的所有属性值组成的数组
+- 如果数据是字符串，尝试将其转换为JSON对象，如果成功则继续处理转换后的结果
+- 如果源数据是基本类型，则返回包含源数据的单数组
+- 如果源数据是null或undefined，则返回空数组
+
+**参数说明：**
+- `source`：任意类型的源数据
+- `options`：可选配置项
+  - `nestArray`：是否递归查找嵌套数组，默认值为true
+
+**使用示例：**
+```typescript
+// 转换数组
+transformAnyToArray([1, 2, 3]); // [1, 2, 3]
+
+// 转换对象
+transformAnyToArray({ a: 1, b: 2 }); // [1, 2]
+
+// 转换JSON字符串
+transformAnyToArray('[1, 2, 3]'); // [1, 2, 3]
+transformAnyToArray('{"a": 1, "b": 2}'); // [1, 2]
+
+// 转换基本类型
+transformAnyToArray('test'); // ['test']
+transformAnyToArray(123); // [123]
+transformAnyToArray(true); // [true]
+
+// 转换null或undefined
+transformAnyToArray(null); // []
+transformAnyToArray(undefined); // []
+```
+
 ## 转换工具
 
 这里有一个[转换工具](https://docs.imengyu.top/js-request-transform/converter)，你可以使用它通过json快速生成DataModel字段，方便前端使用。
