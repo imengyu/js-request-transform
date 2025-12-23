@@ -271,7 +271,7 @@ export class DataModel<T extends DataModel = any, C extends DataModel = any> imp
 
   private _classCreator: NewDataModel|undefined;
   private _arrayClassCreator: NewDataModel|FastTemplateDataModelDefine|undefined;
-  private _classDebugName = '';
+  _classDebugName = '';
   _classPrevDebugKey = '';
 
   /**
