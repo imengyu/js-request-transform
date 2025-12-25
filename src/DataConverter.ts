@@ -586,6 +586,8 @@ registerConverter({
       return makeSuccessConvertResult(source === '' ? null : parseDayjs(source, dateFormat || options.defaultDateFormat));
     else if (typeof source === 'number')
       return makeSuccessConvertResult(dayjs(new Date(source)));
+    else if (source instanceof Date)
+      return makeSuccessConvertResult(dayjs(source));
     else if (typeof source === 'undefined')
       return makeSuccessConvertResult(undefined);
     else if (source === null)
@@ -598,6 +600,10 @@ registerConverter({
   targetType: 'date',
   key: 'DefaultDate',
   converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
+    if (source instanceof Date)
+      return makeSuccessConvertResult(source);
+    if (source instanceof dayjs.Dayjs)
+      return makeSuccessConvertResult(source.toDate());
     if (typeof source === 'string' || typeof source === 'number') {
       let date;
       if (options.praseDateWithDayjs && typeof source === 'string')
