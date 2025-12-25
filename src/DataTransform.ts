@@ -112,9 +112,9 @@ export function transformArrayDataModel<T extends DataModel>(
     else
       return array;
   }
-  if (!(source instanceof Array) && DataObjectUtils.isIterable(source))
+  if (!Array.isArray(source) && DataObjectUtils.isIterable(source))
     source = Array.from(source);
-  if (!(source instanceof Array)) {
+  if (!Array.isArray(source)) {
     if (throwErrorIfFail)
       throw new Error(DataErrorFormatUtils.formatError(DATA_MODEL_ERROR_ARRAY_IS_NOT_ARRAY, { sourceKey: sourceKeyName }));
     else

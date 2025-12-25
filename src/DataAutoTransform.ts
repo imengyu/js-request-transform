@@ -212,7 +212,7 @@ export function transformAnyToArray(source: unknown, options?: {
   }
 
   // 如果源数据是Map类型，返回所有值组成的数组
-  if (source instanceof Map) {
+  if (typeof source === 'object' && source instanceof Map) {
     return Array.from(source.values());
   }
 

@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs, { isDayjs } from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { ChildDataModel, ConvertTable, DataConvertItem, DataModel, DataModelConvertOptions, FastTemplateDataModelDefine } from './DataModel';
@@ -215,7 +215,7 @@ function convertArrayOrObjectItemSolver(
   let item : unknown = null;
   if (options.direction === 'server')
   {
-    if (source instanceof DataModel)
+    if (typeof source === 'object' && source instanceof DataModel)
       item = (source as DataModel).toServerSide(options.userOptions, `${key}[${i}]`);
     else if (typeof childDataModel === 'string')
       item = convertInnernType(source, `${key}[${i}]`, undefined, dateFormat, childDataModel, required, params, options, `${debugKey}[${i}]`, debugName);
@@ -260,7 +260,7 @@ registerConverter({
     }
     if (typeof source === 'object') {
       //数组类型
-      if (source instanceof Array) {
+      if (Array.isArray(source)) {
         const result = new Map<unknown, unknown>();
         const mapKey = params?.mapKey as string || 'id';
         for (let i = 0, c = source.length; i < c; i++) {
@@ -440,7 +440,7 @@ function strictCheckServerBaseTypes(options: ConvertItemOptions, requiredType: s
   if (options.direction === 'client' && options.policy.startsWith('strict') && options.userOptions?.enableClientStrictBaseTypeCheck) { 
     if (source === null)
       return makeFailConvertResult(`Property '${debugKey}' require type '${requiredType}' but null provided.`);
-    if (requiredType === 'array' && !(source instanceof Array))
+    if (requiredType === 'array' && !Array.isArray(source))
       return makeFailConvertResult(`Property '${debugKey}' require array but it is not a array.`);
     if (typeof source !== requiredType)
       return makeFailConvertResult(`Property '${debugKey}' require type '${requiredType}' but '${typeof source}' provided.`);
@@ -586,7 +586,9 @@ registerConverter({
       return makeSuccessConvertResult(source === '' ? null : parseDayjs(source, dateFormat || options.defaultDateFormat));
     else if (typeof source === 'number')
       return makeSuccessConvertResult(dayjs(new Date(source)));
-    else if (source instanceof Date)
+    else if (typeof source === 'object' && isDayjs(source))
+      return makeSuccessConvertResult(source);
+    else if (typeof source === 'object' && source instanceof Date)
       return makeSuccessConvertResult(dayjs(source));
     else if (typeof source === 'undefined')
       return makeSuccessConvertResult(undefined);
@@ -600,9 +602,9 @@ registerConverter({
   targetType: 'date',
   key: 'DefaultDate',
   converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
-    if (source instanceof Date)
+    if (typeof source === 'object' && source instanceof Date)
       return makeSuccessConvertResult(source);
-    if (source instanceof dayjs.Dayjs)
+    if (typeof source === 'object' && isDayjs(source))
       return makeSuccessConvertResult(source.toDate());
     if (typeof source === 'string' || typeof source === 'number') {
       let date;

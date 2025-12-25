@@ -55,7 +55,7 @@ export const DataObjectUtils = {
    */
   simpleClone<T>(obj: T, deepArray = false, deepObject = true): T {
     let temp: KeyValue | Array<KeyValue> | null = null;
-    if (obj instanceof Array) {
+    if (typeof obj === 'object' && obj instanceof Array) {
       temp = deepArray ? obj.map(k => this.simpleClone(k, deepArray)) : obj.concat();
     }
     else if (typeof obj === 'object' && deepObject) {
@@ -172,7 +172,7 @@ export const DataDateUtils = {
    * @returns 
    */
   isVaildDate(date: Date) {
-    return date instanceof Date && !isNaN(date.getTime());
+    return typeof date === 'object' && date instanceof Date && !isNaN(date.getTime());
   },
 };
 
