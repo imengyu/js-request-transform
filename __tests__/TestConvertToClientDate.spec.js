@@ -20,7 +20,7 @@ test('TestConvertToClientDate', () => {
     "testSourceStringTargetDate1": "2022-12-18",
     "testSourceStringTargetDate2": "2022-12-18 12:00:00",
     "testSourceStringTargetDate3": "2022-12-18T12:00:00.000Z",
-    "testSourceStringTargetDate4": "a1",
+    "testSourceStringTargetDate4": "a1"
   }
   `;
 

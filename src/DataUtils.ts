@@ -167,12 +167,43 @@ export const DataDateUtils = {
     return str;
   },
   /**
+   * 判断字符串是否匹配指定的日期格式
+   * @param dateStr - 待校验的日期字符串
+   * @param format - 目标日期格式（如 YYYY-MM-dd HH:ii:ss）
+   * @returns 是否匹配
+   */
+  isDateMatchFormat(dateStr: string, format: string) {
+    // 步骤1：定义格式占位符对应的正则片段（严格匹配数字长度和范围）
+    const formatRegexMap = {
+      'YYYY': '\\d{4}', // 4位年份（0000-9999，如需严格1900-2099可调整为 (19|20)\\d{2}）
+      'YY': '\\d{2}', // 4位年份（0000-9999，如需严格1900-2099可调整为 (19|20)\\d{2}）
+      'MM': '(0[1-9]|1[0-2])', // 2位月份（01-12）
+      'dd': '(0[1-9]|[12]\\d|3[01])', // 2位日期（01-31，仅格式匹配，不校验月份天数）
+      'HH': '([01]\\d|2[0-3])', // 2位小时（00-23）
+      'ii': '[0-5]\\d', // 2位分钟（00-59）
+      'mm': '[0-5]\\d', // 2位分钟（00-59）
+      'ss': '[0-5]\\d'  // 2位秒数（00-59）
+    } as Record<string, string>;
+
+    // 步骤2：转义格式中的特殊正则字符（如 -、:、/ 等，避免干扰正则匹配）
+    let regexStr = format.replace(/([\-\:\/\.\s])/g, '\\$1');
+    // 步骤3：替换格式占位符为对应的正则片段
+    Object.keys(formatRegexMap).forEach(placeholder => {
+      const regex = new RegExp(placeholder, 'g');
+      regexStr = regexStr.replace(regex, formatRegexMap[placeholder]);
+    });
+    // 步骤4：生成完整正则（^ 匹配行首，$ 匹配行尾，i 忽略大小写可选）
+    const dateRegex = new RegExp(`^${regexStr}$`);
+    // 步骤5：校验字符串并返回结果
+    return typeof dateStr === 'string' && dateRegex.test(dateStr);
+  },
+  /**
    * 解析日期字符串为日期对象。
    * @param dateStr 日期字符串
    * @param formatStr 日期格式化模板例如 `'YYYY-MM-dd HH:ii:ss'`
    * @returns 日期对象
    */
-  parseDate(dateStr: string, formatStr: string) : Date {
+  parseDate(dateStr: string, formatStr: string) : Date|undefined {
     // 首先尝试直接通过Date构造函数解析标准日期格式
     const directDate = new Date(dateStr);
     if (this.isVaildDate(directDate)) {
@@ -187,9 +218,12 @@ export const DataDateUtils = {
     const minuteMatch = formatStr.match(/[mM]{1,2}|[iI]{1,2}/);
     const secondMatch = formatStr.match(/[sS]{1,2}/);
 
-    let year = 1970;
+    if (!yearMatch || !monthMatch || !dayMatch || !hourMatch || !minuteMatch || !secondMatch)
+      return undefined;
+
+    let year = 0;
     let month = 0;
-    let day = 1;
+    let day = 0;
     let hour = 0;
     let minute = 0;
     let second = 0;
@@ -199,37 +233,31 @@ export const DataDateUtils = {
       const yearIndex = formatStr.indexOf(yearMatch[0]);
       year = parseInt(dateStr.substring(yearIndex, yearIndex + yearMatch[0].length), 10);
     }
-
     // 解析月份
     if (monthMatch) {
       const monthIndex = formatStr.indexOf(monthMatch[0]);
       month = parseInt(dateStr.substring(monthIndex, monthIndex + monthMatch[0].length), 10) - 1;
     }
-
     // 解析日期
     if (dayMatch) {
       const dayIndex = formatStr.indexOf(dayMatch[0]);
       day = parseInt(dateStr.substring(dayIndex, dayIndex + dayMatch[0].length), 10);
     }
-
     // 解析小时
     if (hourMatch) {
       const hourIndex = formatStr.indexOf(hourMatch[0]);
       hour = parseInt(dateStr.substring(hourIndex, hourIndex + hourMatch[0].length), 10);
     }
-
     // 解析分钟
     if (minuteMatch) {
       const minuteIndex = formatStr.indexOf(minuteMatch[0]);
       minute = parseInt(dateStr.substring(minuteIndex, minuteIndex + minuteMatch[0].length), 10);
     }
-
     // 解析秒
     if (secondMatch) {
       const secondIndex = formatStr.indexOf(secondMatch[0]);
       second = parseInt(dateStr.substring(secondIndex, secondIndex + secondMatch[0].length), 10);
     }
-
     // 创建并返回日期对象
     return new Date(year, month, day, hour, minute, second);
   },

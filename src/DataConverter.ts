@@ -561,7 +561,7 @@ registerConverter({
       const date = typeof source === 'number' ? 
         new Date(source) : 
         DataDateUtils.parseDate(source, dateFormat || options.defaultDateFormat);
-      if (DataDateUtils.isVaildDate(date))
+      if (date && DataDateUtils.isVaildDate(date))
         return makeSuccessConvertResult(date);
       else
         return makeFailConvertResult('Invalid date');
