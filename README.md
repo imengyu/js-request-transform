@@ -52,7 +52,7 @@
 ## 特性
 
 * 支持数据双向转换，可以将数据从服务端返回的格式 》转为》 前端所需要的格式，又在提交时 从前端格式 》转为》 服务端需要的格式。
-* 支持多种字段类型的转换（字符串、数字、布尔值，Date，dayjs，数组，对象）。
+* 支持多种字段类型的转换（字符串、数字、布尔值，Date，数组，对象）。
 * 支持自定义转换器。
 * 支持多转换器流水线转换。
 * 支持数组、对象嵌套转换。
@@ -127,8 +127,8 @@ export class ShopProduct extends DataModel {
       name: { clientSide: 'string', serverSide: 'string' },
       description: { clientSide: 'array', serverSide: 'string' },
       //这是[情况1]的解决方案，对传入传出的日期进行转换，这样在表单组件中可以直接使用 数据.startSolidDate 数据.endSolidDate 来设置日期，无需再手动转换
-      startSolidDate: { clientSide: 'dayjs'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
-      endSolidDate: { clientSide: 'dayjs'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
+      startSolidDate: { clientSide: 'date'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
+      endSolidDate: { clientSide: 'date'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
       //这是嵌套数组对象的情况，在类型是 'array' 或者 'object' 时，只需要提供 clientSideChildDataModel，转换时会自动递归转换成对应的类型。
       details: { clientSide: 'array', clientSideChildDataModel: ShopProductDetail, serverSide: 'array' },
     };
@@ -140,8 +140,8 @@ export class ShopProduct extends DataModel {
   description = '';
   category_id = null as null|number;
   category_name = '';
-  startSolidDate = dayjs();
-  endSolidDate = dayjs();
+  startSolidDate = new Date();
+  endSolidDate = new Date();
   details = [] as ShopProductDetail[];
 }
 //商品详情
@@ -557,17 +557,17 @@ DataConvertItem：
 
 |参数|说明|类型|默认值|
 |--|--|--|--|
-|serverSide|指定当前key转为服务端的数据类型|string|
-|serverSideRequired|指定当前key是否是必填，逻辑如图同 _convertPolicy 设置为 `*-required` 时。|boolean|
-|serverSideDateFormat|当前key类型是dayjs时，自定义日期格式|string|
-|serverSideChildDataModel|当 serverSide 为 array/object 时，子项目要转换成的类型|`(new () => DataModel)`or`string`|
-|customToServerFn|自定义前端至服务端转换函数，指定此函数后 serverSide 属性无效|DataConvertCustomFn|
-|clientSide|指定当前key是否是必填，逻辑如图同 _convertPolicy 设置为 `*-required` 时。|boolean|
-|clientSideRequired|指定当前key转为前端时的数据类型|string|
-|clientSideDateFormat|当前key类型是dayjs时，自定义日期格式|string|
-|serverSideChildDataModel|当 clientSide 为 array/object 时，子项目要转换成的类型|`(new () => DataModel)`or`string`|
-|customToClientFn|自定义服务端至前端转换函数，指定此函数后 clientSide 属性无效|DataConvertCustomFn|
-|forceApply|设置强制转换字段名。默认情况下源数据中没有的字段不会调用转换器，如果你需要为不存在的字段设置默认值或者调用指定自定义转换器，可以使用此功能强制调用转换器，搭配 addDefaultValue 转换器。为字段设置转换器。当处于数组转换器中时，只判断第一个的 forceApply 值。默认：false|`boolean`or`undefined`|
+|serverSide|指定当前key转为服务端的数据类型|string|-|
+|serverSideRequired|指定当前key是否是必填，逻辑如图同 _convertPolicy 设置为 `*-required` 时。|boolean|`false`|
+|serverSideDateFormat|当前key类型是date时，自定义日期格式|string|-|
+|serverSideChildDataModel|当 serverSide 为 array/object 时，子项目要转换成的类型|`(new () => DataModel)`or`string`|-|
+|customToServerFn|自定义前端至服务端转换函数，指定此函数后 serverSide 属性无效|DataConvertCustomFn|-|
+|clientSide|指定当前key是否是必填，逻辑如图同 _convertPolicy 设置为 `*-required` 时。|boolean|-|
+|clientSideRequired|指定当前key转为前端时的数据类型|string|`false`|
+|clientSideDateFormat|当前key类型是date时，自定义日期格式|string|-|
+|serverSideChildDataModel|当 clientSide 为 array/object 时，子项目要转换成的类型|`(new () => DataModel)`or`string`|-|
+|customToClientFn|自定义服务端至前端转换函数，指定此函数后 clientSide 属性无效|DataConvertCustomFn|-|
+|forceApply|设置强制转换字段名。默认情况下源数据中没有的字段不会调用转换器，如果你需要为不存在的字段设置默认值或者调用指定自定义转换器，可以使用此功能强制调用转换器，搭配 addDefaultValue 转换器。为字段设置转换器。当处于数组转换器中时，只判断第一个的 forceApply 值。默认：false|`boolean`or`undefined`|-|
 
 ##### DataConvertCustomFn
 
@@ -592,16 +592,6 @@ DataConvertItem：
 #### DataConverter
 
 转换器构建方法。
-
-##### configDayJsTimeZone
-
-设置 dayjs 默认时区
-
-参考 https://dayjs.gitee.io/docs/zh-CN/plugin/timezone
-
-|参数|说明|类型|默认值|
-|--|--|--|--|
-|timezone|时区名称|string|-|
 
 ##### registerConverter
 
@@ -730,6 +720,6 @@ DataConvertItem：
   * 如果输入是字符串，则会尝试使用日期格式进行转换。
   * 如果输入是数值时间戳，则会使用 `new Date(time)` 进行转换。
 * json 转换为JSON数组，不进行内置递归对象处理。
-* dayjs 转换为dayjs对象。
+* date 转换为Date对象。
 * addDefaultValue 用于当转换值为空时添加默认值，参数类型定义是 `ConverterAddDefaultValueParams` ，取消注册键值是 `AddDefaultValue`。
 * multiple 乘或者除倍数转换器，参数类型定义是 `ConverterMultipleParams` ，取消注册键值是 `Multiple`。

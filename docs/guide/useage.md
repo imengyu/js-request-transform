@@ -63,8 +63,8 @@ export class ShopProduct extends DataModel {
       name: { clientSide: 'string', serverSide: 'string' },
       description: { clientSide: 'array', serverSide: 'string' },
       //这是[情况1]的解决方案，对传入传出的日期进行转换，这样在表单组件中可以直接使用 数据.startSolidDate 数据.endSolidDate 来设置日期，无需再手动转换
-      startSolidDate: { clientSide: 'dayjs'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
-      endSolidDate: { clientSide: 'dayjs'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
+      startSolidDate: { clientSide: 'date'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
+      endSolidDate: { clientSide: 'date'， serverSide: 'string', clientSideDateFormat: 'YYYY-MM-DD', serverSideDateFormat: 'YYYY-MM-DD' },
       //这是嵌套数组对象的情况，在类型是 'array' 或者 'object' 时，只需要提供 clientSideChildDataModel，转换时会自动递归转换成对应的类型。
       details: { clientSide: 'array', clientSideChildDataModel: ShopProductDetail, serverSide: 'array' },
     };
@@ -76,8 +76,8 @@ export class ShopProduct extends DataModel {
   description = '';
   category_id = null as null|number;
   category_name = '';
-  startSolidDate = dayjs();
-  endSolidDate = dayjs();
+  startSolidDate = new Date();
+  endSolidDate = new Date();
   details = [] as ShopProductDetail[];
 }
 //商品详情

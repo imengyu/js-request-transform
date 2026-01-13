@@ -1,7 +1,4 @@
-const dayjs = require('dayjs');
-const { DataModel, DataConverter } = require('../dist');
-
-DataConverter.configDayJsTimeZone('PRC');
+const { DataModel } = require('../dist');
 
 class TestConvertToClientStringModel extends DataModel {
   constructor() {

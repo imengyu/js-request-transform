@@ -1,4 +1,3 @@
-const dayjs = require('dayjs');
 const { DataModel, DataConverter, transformWithConverter } = require('../dist');
 
 class TestConvertToCaseInModel extends DataModel {

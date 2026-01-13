@@ -38,7 +38,7 @@ export interface DataConvertItem {
    */
   serverSide?: string;
   /**
-   * 当前key类型是dayjs时，自定义日期格式
+   * 当前key类型是date时，自定义日期格式
    */
   serverSideDateFormat?: string;
   /**
@@ -119,7 +119,7 @@ export interface DataConvertItem {
    */
   clientSidePresolve?: (key: string, data: unknown) => unknown;
   /**
-   * 当前key类型是dayjs时，自定义日期格式
+   * 当前key类型是date时，自定义日期格式
    */
   clientSideDateFormat?: string;
   /**

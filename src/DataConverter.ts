@@ -1,13 +1,6 @@
-import dayjs, { isDayjs } from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
-import { ChildDataModel, ConvertTable, DataConvertItem, DataModel, DataModelConvertOptions, FastTemplateDataModelDefine } from './DataModel';
+import { ChildDataModel, DataConvertItem, DataModel, DataModelConvertOptions, FastTemplateDataModelDefine } from './DataModel';
 import { DataDateUtils, DataErrorFormatUtils, DataObjectUtils, DataStringUtils, KeyValue, logError, logWarn } from './DataUtils';
 import { DATA_MODEL_ERROR_NO_CONVERTER, DATA_MODEL_ERROR_PRINT_SOURCE, DATA_MODEL_ERROR_REQUIRED_KEY_NULL } from './DataErrorFormat';
-
-dayjs.extend(utc)
-dayjs.extend(timezone)
-
 /**
  * 转换核心层
  *
@@ -126,18 +119,8 @@ export class FastTemplateDataModel extends DataModel {
 
 type ConvertItemCustomOptions = Partial<Omit<ConvertItemOptions, 'direction'>>;
 
-let setDayJsTimeZone = '';
 let convertItemCustomOptions : ConvertItemCustomOptions = {};
 
-/**
- * 设置 dayjs 默认时区
- * 参考 https://dayjs.gitee.io/docs/zh-CN/plugin/timezone
- * @param timezone 
- */
-function configDayJsTimeZone(timezone: string) {
-  setDayJsTimeZone = timezone;
-  dayjs.tz.setDefault(timezone);
-}
 /**
  * 配置转换项自定义参数
  * @param options 
@@ -147,12 +130,6 @@ function configConvertItemCustomOptions(options: ConvertItemCustomOptions) {
 }
 function getConvertItemCustomOptions() {
   return convertItemCustomOptions
-}
-function parseDayjs(source: string, format?: string) {
-  const dayJs = setDayJsTimeZone ?
-    dayjs(source, format).tz(setDayJsTimeZone) :
-    dayjs(source, format);
-  return dayJs;
 }
 
 /**
@@ -540,8 +517,6 @@ registerConverter({
       return makeSuccessConvertResult(DataStringUtils.toNumberStr(source, 16));
     else if (typeof source === 'bigint')
       return makeSuccessConvertResult(source.toString());
-    else if (typeof source === 'object' && dayjs.isDayjs(source))
-      return makeSuccessConvertResult(source.format(dateFormat || options.defaultDateFormat));
     else if (typeof source === 'object' && source instanceof Date)
       return makeSuccessConvertResult(DataDateUtils.formatDate(source, dateFormat || options.defaultDateFormat));
     else if (typeof source === 'object')
@@ -566,9 +541,7 @@ registerConverter({
     if (baseTypeCheckResult)
       return baseTypeCheckResult;
 
-    if (typeof source === 'object' && dayjs.isDayjs(source))
-      return makeSuccessConvertResult(source.toDate().getTime());
-    else if (typeof source === 'object' && source instanceof Date)
+    if (typeof source === 'object' && source instanceof Date)
       return makeSuccessConvertResult(source.getTime());
     else if (typeof source === 'number')
       return makeSuccessConvertResult(source);
@@ -579,39 +552,15 @@ registerConverter({
   },
 });
 registerConverter({
-  targetType: 'dayjs',
-  key: 'DefaultDayjs',
-  converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
-    if (typeof source === 'string')
-      return makeSuccessConvertResult(source === '' ? null : parseDayjs(source, dateFormat || options.defaultDateFormat));
-    else if (typeof source === 'number')
-      return makeSuccessConvertResult(dayjs(new Date(source)));
-    else if (typeof source === 'object' && isDayjs(source))
-      return makeSuccessConvertResult(source);
-    else if (typeof source === 'object' && source instanceof Date)
-      return makeSuccessConvertResult(dayjs(source));
-    else if (typeof source === 'undefined')
-      return makeSuccessConvertResult(undefined);
-    else if (source === null)
-      return makeSuccessConvertResult(null);
-    else
-     return makeFailConvertResult();
-  },
-});
-registerConverter({
   targetType: 'date',
   key: 'DefaultDate',
   converter(source, key, type, childDataModel, dateFormat, required, params, options, debugKey, debugName)  {
     if (typeof source === 'object' && source instanceof Date)
       return makeSuccessConvertResult(source);
-    if (typeof source === 'object' && isDayjs(source))
-      return makeSuccessConvertResult(source.toDate());
     if (typeof source === 'string' || typeof source === 'number') {
-      let date;
-      if (options.praseDateWithDayjs && typeof source === 'string')
-        date = parseDayjs(source, dateFormat || options.defaultDateFormat).toDate();
-      else
-        date = new Date(source);
+      const date = typeof source === 'number' ? 
+        new Date(source) : 
+        DataDateUtils.parseDate(source, dateFormat || options.defaultDateFormat);
       if (DataDateUtils.isVaildDate(date))
         return makeSuccessConvertResult(date);
       else
@@ -753,11 +702,6 @@ export interface ConvertItemOptions {
    * 当前模型的默认日期格式
    */
   defaultDateFormat: string,
-  /**
-   * 是否使用dayjs解析日期
-   * @default false
-   */
-  praseDateWithDayjs?: boolean,
   /**
    * 当前模型的转换策略
    */
@@ -914,7 +858,6 @@ function convertDataItem(source: unknown, key: string, item: DataConvertItem, op
 export const DataConverter = {
   registerConverter,
   unregisterConverter,
-  configDayJsTimeZone,
   configConvertItemCustomOptions,
   getConvertItemCustomOptions,
   convertDataItem,

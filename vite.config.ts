@@ -16,16 +16,6 @@ export default defineConfig({
         return 'index.js';
       },
     },
-    rollupOptions: {
-      // 外部依赖，这些不会被打包到库中
-      external: ['dayjs'],
-      output: {
-        // 为umd构建提供全局变量名
-        globals: {
-          dayjs: 'dayjs',
-        },
-      },
-    },
     sourcemap: true,
     emptyOutDir: true,
     outDir: 'dist',

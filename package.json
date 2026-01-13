@@ -45,8 +45,5 @@
     "vite": "^5.0.0",
     "vite-plugin-dts": "^4.5.4",
     "vitepress": "^1.6.4"
-  },
-  "dependencies": {
-    "dayjs": "^1.11.7"
   }
 }

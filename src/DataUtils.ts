@@ -167,6 +167,73 @@ export const DataDateUtils = {
     return str;
   },
   /**
+   * 解析日期字符串为日期对象。
+   * @param dateStr 日期字符串
+   * @param formatStr 日期格式化模板例如 `'YYYY-MM-dd HH:ii:ss'`
+   * @returns 日期对象
+   */
+  parseDate(dateStr: string, formatStr: string) : Date {
+    // 首先尝试直接通过Date构造函数解析标准日期格式
+    const directDate = new Date(dateStr);
+    if (this.isVaildDate(directDate)) {
+      return directDate;
+    }
+
+    // 如果直接解析失败，根据formatStr解析
+    const yearMatch = formatStr.match(/[yY]{4}/);
+    const monthMatch = formatStr.match(/[Mm]{1,2}/);
+    const dayMatch = formatStr.match(/[dD]{1,2}/);
+    const hourMatch = formatStr.match(/[Hh]{1,2}/);
+    const minuteMatch = formatStr.match(/[mM]{1,2}|[iI]{1,2}/);
+    const secondMatch = formatStr.match(/[sS]{1,2}/);
+
+    let year = 1970;
+    let month = 0;
+    let day = 1;
+    let hour = 0;
+    let minute = 0;
+    let second = 0;
+
+    // 解析年份
+    if (yearMatch) {
+      const yearIndex = formatStr.indexOf(yearMatch[0]);
+      year = parseInt(dateStr.substring(yearIndex, yearIndex + yearMatch[0].length), 10);
+    }
+
+    // 解析月份
+    if (monthMatch) {
+      const monthIndex = formatStr.indexOf(monthMatch[0]);
+      month = parseInt(dateStr.substring(monthIndex, monthIndex + monthMatch[0].length), 10) - 1;
+    }
+
+    // 解析日期
+    if (dayMatch) {
+      const dayIndex = formatStr.indexOf(dayMatch[0]);
+      day = parseInt(dateStr.substring(dayIndex, dayIndex + dayMatch[0].length), 10);
+    }
+
+    // 解析小时
+    if (hourMatch) {
+      const hourIndex = formatStr.indexOf(hourMatch[0]);
+      hour = parseInt(dateStr.substring(hourIndex, hourIndex + hourMatch[0].length), 10);
+    }
+
+    // 解析分钟
+    if (minuteMatch) {
+      const minuteIndex = formatStr.indexOf(minuteMatch[0]);
+      minute = parseInt(dateStr.substring(minuteIndex, minuteIndex + minuteMatch[0].length), 10);
+    }
+
+    // 解析秒
+    if (secondMatch) {
+      const secondIndex = formatStr.indexOf(secondMatch[0]);
+      second = parseInt(dateStr.substring(secondIndex, secondIndex + secondMatch[0].length), 10);
+    }
+
+    // 创建并返回日期对象
+    return new Date(year, month, day, hour, minute, second);
+  },
+  /**
    * 判断一个参数是不是有效的 Date 日期类型。
    * @param date 要判断的参数
    * @returns 

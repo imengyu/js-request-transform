@@ -1,18 +1,15 @@
-const dayjs = require('dayjs');
 const { DataModel, DataConverter } = require('../dist');
-
-DataConverter.configDayJsTimeZone('PRC');
 
 class TestConvertToClientObjectChildChildModel extends DataModel {
   constructor() {
     super();
     this._convertTable = {
       code: { clientSide: 'string' },
-      date: { clientSide: 'dayjs' }
+      date: { clientSide: 'date' }
     };
   }
 
-  date = dayjs();
+  date = new Date();
   code = '';
 }
 
@@ -106,7 +103,7 @@ test('TestConvertToClientObject', () => {
   expect(serverResult.testSourceObjectTargetObject2.name).toBe('Cde');
   expect(serverResult.testSourceObjectTargetObject2.child instanceof TestConvertToClientObjectChildChildModel).toBeTruthy();
   expect(serverResult.testSourceObjectTargetObject2.child.code).toBe('Code111');
-  expect(dayjs.isDayjs(serverResult.testSourceObjectTargetObject2.child.date)).toBeTruthy();
+  expect(serverResult.testSourceObjectTargetObject2.child.date instanceof Date).toBeTruthy();
 
   expect(serverResult.testSourceObjectTargetObject3 instanceof TestConvertToClientObjectChildModel).toBeTruthy();
   expect(serverResult.testSourceObjectTargetObject3.key).toBe(1);
@@ -126,7 +123,7 @@ test('TestConvertToClientObject', () => {
   expect(serverResult.testSourceStringTargetObject2.name).toBe('Cde');
   expect(serverResult.testSourceStringTargetObject2.child instanceof TestConvertToClientObjectChildChildModel).toBeTruthy();
   expect(serverResult.testSourceStringTargetObject2.child.code).toBe('Code111');
-  expect(dayjs.isDayjs(serverResult.testSourceStringTargetObject2.child.date)).toBeTruthy();
+  expect(serverResult.testSourceStringTargetObject2.child.date instanceof Date).toBeTruthy();
 
   expect(serverResult.testSourceStringTargetObject3 instanceof TestConvertToClientObjectChildModel).toBeTruthy();
   expect(serverResult.testSourceStringTargetObject3.key).toBe(1);
